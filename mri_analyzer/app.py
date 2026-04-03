@@ -28,8 +28,6 @@ except:
     api_key = ""
 
 with st.sidebar:
-    st.markdown("---")
-
     st.header("🎯 시퀀스 선택")
     seq_options = {v["label"]: k for k, v in SEQUENCE_BASELINES.items()}
     selected_label = st.selectbox("분석할 시퀀스", list(seq_options.keys()))
