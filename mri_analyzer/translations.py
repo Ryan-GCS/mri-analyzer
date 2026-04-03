@@ -223,7 +223,59 @@ TRANSLATIONS = {
         },
     },
 }
+# translations.py ko/en 각각에 추가
 
+# ko label_map
+"label_map": {
+    "🧠 Brain - T1 (뇌 구조)":          "🧠 Brain - T1 (뇌 구조)",
+    "🧠 Brain - T2 (부종/병변)":         "🧠 Brain - T2 (부종/병변)",
+    "🧠 Brain - FLAIR (백질 병변)":      "🧠 Brain - FLAIR (백질 병변)",
+    "🧠 Brain - DWI (급성 뇌경색)":      "🧠 Brain - DWI (급성 뇌경색)",
+    "🧠 Brain - GRE/SWI (출혈/철분)":    "🧠 Brain - GRE/SWI (출혈/철분)",
+    "🧠 Brain - MRA (뇌혈관)":           "🧠 Brain - MRA (뇌혈관)",
+    "🔧 C-Spine - T1 (경추 구조)":       "🔧 C-Spine - T1 (경추 구조)",
+    "🔧 C-Spine - T2 (경추 디스크/병변)":"🔧 C-Spine - T2 (경추 디스크/병변)",
+    "🔧 C-Spine - STIR (경추 부종)":     "🔧 C-Spine - STIR (경추 부종)",
+    "🦴 L-Spine - T1 (요추 구조)":       "🦴 L-Spine - T1 (요추 구조)",
+    "🦴 L-Spine - T2 (요추 디스크/병변)":"🦴 L-Spine - T2 (요추 디스크/병변)",
+    "🦴 L-Spine - STIR (요추 부종)":     "🦴 L-Spine - STIR (요추 부종)",
+    "🦵 Knee - T1 (연골/뼈)":            "🦵 Knee - T1 (연골/뼈)",
+    "🦵 Knee - T2 (반월판/인대)":        "🦵 Knee - T2 (반월판/인대)",
+    "🦵 Knee - PD (연골/반월판)":        "🦵 Knee - PD (연골/반월판)",
+    "🦵 Knee - STIR (부종/염증)":        "🦵 Knee - STIR (부종/염증)",
+    "🫀 Shoulder - T1 (회전근개)":       "🫀 Shoulder - T1 (회전근개)",
+    "🫀 Shoulder - T2 (힘줄/점액낭)":    "🫀 Shoulder - T2 (힘줄/점액낭)",
+    "🫀 Shoulder - PD (회전근개)":       "🫀 Shoulder - PD (회전근개)",
+    "🫁 Abdomen - T1 (간/췌장)":         "🫁 Abdomen - T1 (간/췌장)",
+    "🫁 Abdomen - T2 (담도/췌관)":       "🫁 Abdomen - T2 (담도/췌관)",
+    "🫁 Abdomen - DWI (종양 감별)":      "🫁 Abdomen - DWI (종양 감별)",
+},
+
+# en label_map
+"label_map": {
+    "🧠 Brain - T1 (뇌 구조)":          "🧠 Brain - T1 (Brain Structure)",
+    "🧠 Brain - T2 (부종/병변)":         "🧠 Brain - T2 (Edema/Lesion)",
+    "🧠 Brain - FLAIR (백질 병변)":      "🧠 Brain - FLAIR (White Matter)",
+    "🧠 Brain - DWI (급성 뇌경색)":      "🧠 Brain - DWI (Acute Infarction)",
+    "🧠 Brain - GRE/SWI (출혈/철분)":    "🧠 Brain - GRE/SWI (Hemorrhage/Iron)",
+    "🧠 Brain - MRA (뇌혈관)":           "🧠 Brain - MRA (Brain Vessels)",
+    "🔧 C-Spine - T1 (경추 구조)":       "🔧 C-Spine - T1 (Structure)",
+    "🔧 C-Spine - T2 (경추 디스크/병변)":"🔧 C-Spine - T2 (Disc/Lesion)",
+    "🔧 C-Spine - STIR (경추 부종)":     "🔧 C-Spine - STIR (Edema)",
+    "🦴 L-Spine - T1 (요추 구조)":       "🦴 L-Spine - T1 (Structure)",
+    "🦴 L-Spine - T2 (요추 디스크/병변)":"🦴 L-Spine - T2 (Disc/Lesion)",
+    "🦴 L-Spine - STIR (요추 부종)":     "🦴 L-Spine - STIR (Edema)",
+    "🦵 Knee - T1 (연골/뼈)":            "🦵 Knee - T1 (Cartilage/Bone)",
+    "🦵 Knee - T2 (반월판/인대)":        "🦵 Knee - T2 (Meniscus/Ligament)",
+    "🦵 Knee - PD (연골/반월판)":        "🦵 Knee - PD (Cartilage/Meniscus)",
+    "🦵 Knee - STIR (부종/염증)":        "🦵 Knee - STIR (Edema/Inflammation)",
+    "🫀 Shoulder - T1 (회전근개)":       "🫀 Shoulder - T1 (Rotator Cuff)",
+    "🫀 Shoulder - T2 (힘줄/점액낭)":    "🫀 Shoulder - T2 (Tendon/Bursa)",
+    "🫀 Shoulder - PD (회전근개)":       "🫀 Shoulder - PD (Rotator Cuff)",
+    "🫁 Abdomen - T1 (간/췌장)":         "🫁 Abdomen - T1 (Liver/Pancreas)",
+    "🫁 Abdomen - T2 (담도/췌관)":       "🫁 Abdomen - T2 (Bile Duct)",
+    "🫁 Abdomen - DWI (종양 감별)":      "🫁 Abdomen - DWI (Tumor Detection)",
+},
 
 def get_text(lang, key):
     return TRANSLATIONS.get(lang, TRANSLATIONS["ko"]).get(key, key)
