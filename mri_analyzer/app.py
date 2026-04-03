@@ -1,5 +1,5 @@
 import streamlit as st
-from baseline import SEQUENCE_BASELINES
+from baseline import SEQUENCE_BASELINES, LABEL_EN_MAP
 from baseline_common import MANUFACTURER_PARAMS
 from translations import get_text
 from functions import (
@@ -19,15 +19,24 @@ st.set_page_config(
 
 mfr_keys = list(MANUFACTURER_PARAMS.keys())
 
-# 언어 선택 세션 초기화
 if "lang" not in st.session_state:
     st.session_state.lang = "ko"
 
-# API Key
 try:
     api_key = st.secrets["groq"]["api_key"]
 except:
     api_key = ""
+
+def translate_label(label, lang):
+    if lang == "ko":
+        return label
+    return LABEL_EN_MAP.get(label, label)
+
+def translate_impact(impact, lang):
+    if lang == "ko":
+        return impact
+    impact_map = get_text(lang, "impact_map")
+    return impact_map.get(impact, impact)
 
 with st.sidebar:
     lang = st.radio(
@@ -40,39 +49,24 @@ with st.sidebar:
 
     T = lambda key: get_text(lang, key)
 
-    def translate_impact(impact, lang):
-        if lang == "ko":
-            return impact
-        impact_map = get_text(lang, "impact_map")
-        return impact_map.get(impact, impact)
-
     st.markdown("---")
     st.header(T("seq_select"))
-    
-    # label 번역 함수
-    def translate_label(label, lang):
-        if lang == "ko":
-            return label
-        label_map = get_text(lang, "label_map")
-        return label_map.get(label, label)
-    
-    # 번역된 label로 드롭다운 생성
-    seq_options_translated = {
+
+    seq_options = {
         translate_label(v["label"], lang): k
         for k, v in SEQUENCE_BASELINES.items()
     }
-    seq_options = {v["label"]: k for k, v in SEQUENCE_BASELINES.items()}
+
     selected_label  = st.selectbox(T("seq_label"), list(seq_options.keys()))
     selected_seq    = seq_options[selected_label]
     baseline_params = SEQUENCE_BASELINES[selected_seq]["params"]
-    st.markdown("---")
 
+    st.markdown("---")
     st.header(T("baseline_setting"))
     st.caption(T("baseline_caption"))
 
     user_baseline = {}
 
-    # 시퀀스 파라미터
     st.subheader(T("seq_params"))
     for param_name, values in baseline_params.items():
         if param_name not in mfr_keys:
@@ -91,8 +85,6 @@ with st.sidebar:
                 }
 
     st.markdown("---")
-
-    # 제조사 파라미터
     st.subheader(T("mfr_params"))
     st.caption(T("mfr_caption"))
     for param_name, values in baseline_params.items():
@@ -110,7 +102,6 @@ with st.sidebar:
                     "unit":    values["unit"],
                     "impact":  values["impact"]
                 }
-
 T = lambda key: get_text(lang, key)
 
 st.title(T("app_title"))
@@ -149,7 +140,6 @@ if uploaded_file:
             st.error(T("dcm_error").format(e))
             st.stop()
 
-    # 제조사 배너
     mfr = params["기본 정보"]["감지된 제조사"]
     if mfr == "GE":
         st.info(T("mfr_ge"))
@@ -160,7 +150,6 @@ if uploaded_file:
     else:
         st.warning(T("mfr_unknown"))
 
-    # 파라미터 탭
     st.header(T("params_header"))
 
     if mfr == "GE":
@@ -202,12 +191,10 @@ if uploaded_file:
         with t3: st.json(params["공간 해상도"])
         with t4: st.json(params["DWI 파라미터"])
 
-    # 비교표
     st.header(T("compare_header"))
     df = create_comparison_table(params, user_baseline, lang)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-    # 레이더 차트
     st.header(T("radar_header"))
     radar = create_radar_chart(params, user_baseline, lang)
     if radar:
@@ -215,7 +202,6 @@ if uploaded_file:
     else:
         st.info(T("radar_empty"))
 
-    # 게이지 차트
     st.header(T("gauge_header"))
     gauges = create_gauge_charts(params, user_baseline)
     if gauges:
@@ -226,7 +212,6 @@ if uploaded_file:
     else:
         st.info(T("gauge_empty"))
 
-    # AI 분석
     st.header(T("ai_header"))
     if not api_key:
         st.error(T("ai_no_key"))
