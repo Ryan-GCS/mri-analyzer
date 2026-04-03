@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 from baseline import SEQUENCE_BASELINES, LABEL_EN_MAP, IMPACT_EN_MAP
 from baseline_common import MANUFACTURER_PARAMS
 from translations import get_text
@@ -11,6 +12,7 @@ from functions import (
     create_gauge_charts,
     analyze_with_openai,
 )
+from pdf_report import generate_pdf_report
 
 st.set_page_config(
     page_title="MRI DICOM AI Analyzer",
@@ -240,11 +242,32 @@ if uploaded_file:
                         params, api_key, user_baseline, selected_seq, lang
                     )
                     st.markdown(result)
+
+                    # 텍스트 다운로드
                     st.download_button(
-                        label=T("download_button"),
-                        data=result,
-                        file_name="mri_analysis_result.txt",
-                        mime="text/plain"
+                        label     = T("download_button"),
+                        data      = result,
+                        file_name = "mri_analysis_result.txt",
+                        mime      = "text/plain"
                     )
+
+                    # PDF 다운로드
+                    pdf_buffer = generate_pdf_report(
+                        params        = params,
+                        user_baseline = user_baseline,
+                        df            = df,
+                        radar_fig     = radar,
+                        gauge_figs    = gauges if gauges else [],
+                        ai_result     = result,
+                        selected_seq  = selected_seq,
+                        lang          = lang,
+                    )
+                    st.download_button(
+                        label     = T("pdf_download"),
+                        data      = pdf_buffer,
+                        file_name = f"MRI_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                        mime      = "application/pdf",
+                    )
+
                 except Exception as e:
                     st.error(T("ai_error").format(e))
