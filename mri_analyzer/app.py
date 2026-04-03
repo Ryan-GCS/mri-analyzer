@@ -100,6 +100,9 @@ with st.sidebar:
                     "max":     mx,
                     "unit":    values["unit"],
                     "impact":  values["impact"]
+    st.markdown("---")
+    with st.expander(T("reference_header")):
+        st.markdown(T("reference_body"))
                 }
 T = lambda key: get_text(lang, key)
 
