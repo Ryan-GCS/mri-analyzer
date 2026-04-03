@@ -5,6 +5,7 @@ from translations import get_text
 from functions import (
     extract_dcm_from_zip,
     extract_dicom_params,
+    translate_params,
     create_comparison_table,
     create_radar_chart,
     create_gauge_charts,
@@ -36,6 +37,16 @@ def translate_impact(impact, lang):
     if lang == "ko":
         return impact
     return IMPACT_EN_MAP.get(impact, impact)
+
+def get_section_key(ko_key, lang):
+    section_map = {
+        "기본 정보":       {"ko": "기본 정보",       "en": "Basic Info"},
+        "시퀀스 파라미터": {"ko": "시퀀스 파라미터", "en": "Sequence Params"},
+        "공간 해상도":     {"ko": "공간 해상도",     "en": "Spatial Resolution"},
+        "DWI 파라미터":    {"ko": "DWI 파라미터",    "en": "DWI Params"},
+        "제조사 파라미터": {"ko": "제조사 파라미터", "en": "Manufacturer Params"},
+    }
+    return section_map.get(ko_key, {}).get(lang, ko_key)
 
 with st.sidebar:
     lang = st.radio(
@@ -80,7 +91,7 @@ with st.sidebar:
                     "optimal": opt,
                     "max":     mx,
                     "unit":    values["unit"],
-                    "impact":  values["impact"]
+                    "impact":  values["impact"],
                 }
 
     st.markdown("---")
@@ -99,12 +110,12 @@ with st.sidebar:
                     "optimal": opt,
                     "max":     mx,
                     "unit":    values["unit"],
-                    "impact":  values["impact"]
-}
+                    "impact":  values["impact"],
+                }
+
     st.markdown("---")
     with st.expander(T("reference_header")):
         st.markdown(T("reference_body"))
-        
 T = lambda key: get_text(lang, key)
 
 st.title(T("app_title"))
@@ -143,7 +154,12 @@ if uploaded_file:
             st.error(T("dcm_error").format(e))
             st.stop()
 
+    # 번역된 표시용 params
+    params_display = translate_params(params, lang)
+
+    # 제조사 감지는 원본 params 사용
     mfr = params["기본 정보"]["감지된 제조사"]
+
     if mfr == "GE":
         st.info(T("mfr_ge"))
     elif mfr == "SIEMENS":
@@ -159,40 +175,40 @@ if uploaded_file:
         t1, t2, t3, t4, t5 = st.tabs([
             T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi"), T("tab_ge")
         ])
-        with t1: st.json(params["기본 정보"])
-        with t2: st.json(params["시퀀스 파라미터"])
-        with t3: st.json(params["공간 해상도"])
-        with t4: st.json(params["DWI 파라미터"])
-        with t5: st.json(params["제조사 파라미터"])
+        with t1: st.json(params_display[get_section_key("기본 정보",       lang)])
+        with t2: st.json(params_display[get_section_key("시퀀스 파라미터", lang)])
+        with t3: st.json(params_display[get_section_key("공간 해상도",     lang)])
+        with t4: st.json(params_display[get_section_key("DWI 파라미터",    lang)])
+        with t5: st.json(params_display[get_section_key("제조사 파라미터", lang)])
 
     elif mfr == "SIEMENS":
         t1, t2, t3, t4, t5 = st.tabs([
             T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi"), T("tab_siemens")
         ])
-        with t1: st.json(params["기본 정보"])
-        with t2: st.json(params["시퀀스 파라미터"])
-        with t3: st.json(params["공간 해상도"])
-        with t4: st.json(params["DWI 파라미터"])
-        with t5: st.json(params["제조사 파라미터"])
+        with t1: st.json(params_display[get_section_key("기본 정보",       lang)])
+        with t2: st.json(params_display[get_section_key("시퀀스 파라미터", lang)])
+        with t3: st.json(params_display[get_section_key("공간 해상도",     lang)])
+        with t4: st.json(params_display[get_section_key("DWI 파라미터",    lang)])
+        with t5: st.json(params_display[get_section_key("제조사 파라미터", lang)])
 
     elif mfr == "PHILIPS":
         t1, t2, t3, t4, t5 = st.tabs([
             T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi"), T("tab_philips")
         ])
-        with t1: st.json(params["기본 정보"])
-        with t2: st.json(params["시퀀스 파라미터"])
-        with t3: st.json(params["공간 해상도"])
-        with t4: st.json(params["DWI 파라미터"])
-        with t5: st.json(params["제조사 파라미터"])
+        with t1: st.json(params_display[get_section_key("기본 정보",       lang)])
+        with t2: st.json(params_display[get_section_key("시퀀스 파라미터", lang)])
+        with t3: st.json(params_display[get_section_key("공간 해상도",     lang)])
+        with t4: st.json(params_display[get_section_key("DWI 파라미터",    lang)])
+        with t5: st.json(params_display[get_section_key("제조사 파라미터", lang)])
 
     else:
         t1, t2, t3, t4 = st.tabs([
             T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi")
         ])
-        with t1: st.json(params["기본 정보"])
-        with t2: st.json(params["시퀀스 파라미터"])
-        with t3: st.json(params["공간 해상도"])
-        with t4: st.json(params["DWI 파라미터"])
+        with t1: st.json(params_display[get_section_key("기본 정보",       lang)])
+        with t2: st.json(params_display[get_section_key("시퀀스 파라미터", lang)])
+        with t3: st.json(params_display[get_section_key("공간 해상도",     lang)])
+        with t4: st.json(params_display[get_section_key("DWI 파라미터",    lang)])
 
     st.header(T("compare_header"))
     df = create_comparison_table(params, user_baseline, lang)
