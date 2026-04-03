@@ -3,3 +3,6 @@ pydicom
 plotly
 pandas
 groq
+reportlab
+Pillow
+kaleido
