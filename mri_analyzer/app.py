@@ -28,14 +28,6 @@ except:
     api_key = ""
 
 with st.sidebar:
-    st.header("⚙️ 설정")
-
-    # API Key 상태 표시만 (입력창 없음)
-    if api_key:
-        st.success("✅ API 연결됨")
-    else:
-        st.error("❌ API Key 없음")
-
     st.markdown("---")
 
     st.header("🎯 시퀀스 선택")
