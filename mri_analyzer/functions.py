@@ -1,433 +1,476 @@
 import pydicom
+import zipfile
+import io
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from io import BytesIO
-import zipfile
-import os
-import tempfile
-import json
 from groq import Groq
+from baseline import SEQUENCE_BASELINES
+from baseline_common import MANUFACTURER_PARAMS
 
 
-def extract_dcm_from_zip(uploaded_zip):
+def extract_dcm_from_zip(uploaded_file):
     dcm_files = []
-    tmp = tempfile.mkdtemp()
-    with zipfile.ZipFile(uploaded_zip, "r") as zf:
-        zf.extractall(tmp)
-    for root, dirs, files in os.walk(tmp):
-        for fname in files:
-            fpath = os.path.join(root, fname)
-            try:
-                ds = pydicom.dcmread(fpath, force=True)
-                if hasattr(ds, "Modality") or hasattr(ds, "pixel_array"):
-                    with open(fpath, "rb") as f:
-                        dcm_files.append({"name": fname, "bytes": f.read()})
-            except:
-                pass
+    with zipfile.ZipFile(io.BytesIO(uploaded_file.read()), "r") as z:
+        for name in z.namelist():
+            if name.lower().endswith(".dcm") or "." not in name.split("/")[-1]:
+                try:
+                    with z.open(name) as f:
+                        data = f.read()
+                        if data:
+                            dcm_files.append({"name": name, "bytes": data})
+                except:
+                    continue
     return dcm_files
 
 
-def detect_manufacturer(ds):
-    def safe_get(tag, default=""):
+def extract_dicom_params(file_bytes, filename="unknown.dcm"):
+    ds = pydicom.dcmread(io.BytesIO(file_bytes), force=True)
+
+    def safe(tag, default="N/A"):
         try:
             val = ds[tag].value
-            return str(val).upper() if val is not None else default
-        except:
-            return default
-    manufacturer = safe_get((0x0008, 0x0070))
-    if "GE" in manufacturer:
-        return "GE", manufacturer
-    elif "SIEMENS" in manufacturer:
-        return "SIEMENS", manufacturer
-    elif "PHILIPS" in manufacturer:
-        return "PHILIPS", manufacturer
-    else:
-        return "UNKNOWN", manufacturer
-
-
-def extract_manufacturer_params(ds, mfr):
-    def safe_get(tag, default="N/A"):
-        try:
-            val = ds[tag].value
-            return str(val) if val is not None else default
+            if isinstance(val, (list, pydicom.sequence.Sequence)):
+                return str(val)
+            return val
         except:
             return default
 
-    common_advanced = {
-        "Parallel Imaging Factor": safe_get((0x0018, 0x9069)),
-        "Partial Fourier":         safe_get((0x0018, 0x9081)),
-        "Diffusion Gradient Dir":  safe_get((0x0018, 0x9089)),
-        "Fat Saturation":          safe_get((0x0018, 0x9012)),
-        "Inversion Recovery":      safe_get((0x0018, 0x9009)),
-        "Spoiling":                safe_get((0x0018, 0x9016)),
-        "Receive Coil Name":       safe_get((0x0018, 0x1250)),
-        "Transmit Coil Name":      safe_get((0x0018, 0x1251)),
-        "SAR":                     safe_get((0x0018, 0x1316)),
-        "Cardiac RR Interval":     safe_get((0x0018, 0x0088)),
-    }
+    def safe_float(tag, default=None):
+        try:
+            return float(ds[tag].value)
+        except:
+            return default
 
+    # 제조사 감지
+    mfr_raw  = str(safe(0x00080070, "")).upper()
+    if "GE"      in mfr_raw: mfr = "GE"
+    elif "SIEMENS" in mfr_raw: mfr = "SIEMENS"
+    elif "PHILIPS" in mfr_raw: mfr = "PHILIPS"
+    else: mfr = "UNKNOWN"
+
+    tr    = safe_float(0x00180080)
+    te    = safe_float(0x00180081)
+    ti    = safe_float(0x00180082)
+    flip  = safe_float(0x00181314)
+    etl   = safe_float(0x00180091)
+    nex   = safe_float(0x00180083)
+    bw    = safe_float(0x00180095)
+    rows  = safe_float(0x00280010)
+    fov_r = safe_float(0x00181312)
+
+    try:
+        fov_val = ds[0x00181312].value
+        if hasattr(fov_val, "__iter__"):
+            fov = float(list(fov_val)[0])
+        else:
+            fov = float(fov_val)
+    except:
+        fov = None
+
+    try:
+        pixel_spacing = ds[0x00280030].value
+        slice_thick   = safe_float(0x00500004) or safe_float(0x00180050)
+    except:
+        pixel_spacing = None
+        slice_thick   = safe_float(0x00180050)
+
+    # 제조사별 파라미터
+    mfr_params = {}
     if mfr == "GE":
-        ge_params = {
-            "Pulse Sequence Name":    safe_get((0x0019, 0x109C)),
-            "Internal Pulse Seq":     safe_get((0x0019, 0x109E)),
-            "Slice Thickness (GE)":   safe_get((0x0043, 0x1039)),
-            "Noise Reduction Factor": safe_get((0x0043, 0x102F)),
-            "Acquisition Type":       safe_get((0x0019, 0x10A4)),
-            "ARC/ASSET Factor":       safe_get((0x0043, 0x1028)),
-            "Auto Prescan":           safe_get((0x0019, 0x10F2)),
+        mfr_params = {
+            "SAR":              safe_float(0x00181316),
+            "Gradient Mode":    str(safe(0x00189028, "N/A")),
         }
-        ge_params.update(common_advanced)
-        return ge_params
     elif mfr == "SIEMENS":
-        siemens_params = {
-            "iPAT Factor":        safe_get((0x0051, 0x100A)),
-            "FOV Siemens":        safe_get((0x0051, 0x100B)),
-            "Slice Orientation":  safe_get((0x0051, 0x100E)),
-            "BW per Pixel Phase": safe_get((0x0019, 0x1028)),
-            "Mosaic Image Count": safe_get((0x0019, 0x100A)),
-            "Slice Duration":     safe_get((0x0019, 0x100B)),
-            "Real Dwell Time":    safe_get((0x0051, 0x1016)),
-            "GRAPPA Factor":      safe_get((0x0051, 0x1011)),
+        mfr_params = {
+            "SAR":              safe_float(0x00181316),
+            "iPAT Factor":      safe_float(0x00189069),
+            "Coil String":      str(safe(0x00511019, "N/A")),
         }
-        siemens_params.update(common_advanced)
-        return siemens_params
     elif mfr == "PHILIPS":
-        philips_params = {
-            "B-Factor (Philips)": safe_get((0x2001, 0x1003)),
-            "Diffusion Direction":safe_get((0x2001, 0x1004)),
-            "Number of Slices":   safe_get((0x2005, 0x1011)),
-            "Prepulse Delay":     safe_get((0x2001, 0x1018)),
-            "Dynamic Scans":      safe_get((0x2001, 0x1081)),
-            "SENSE Factor":       safe_get((0x2005, 0x100E)),
-            "Water Fat Shift":    safe_get((0x2001, 0x1022)),
+        mfr_params = {
+            "SENSE Factor":     safe_float(0x00189087),
+            "Water Fat Shift":  safe_float(0x00189024),
+            "SAR":              safe_float(0x00181316),
         }
-        philips_params.update(common_advanced)
-        return philips_params
-    else:
-        return common_advanced
-        
+
+    params = {
+        "기본 정보": {
+            "파일명":       filename,
+            "제조사":       str(safe(0x00080070, "N/A")),
+            "감지된 제조사": mfr,
+            "프로토콜명":   str(safe(0x00181030, "N/A")),
+            "촬영부위":     str(safe(0x00180015, "N/A")),
+            "자장강도(T)":  safe_float(0x00180087) or safe_float(0x00181030),
+            "수신코일":     str(safe(0x00181250, "N/A")),
+            "시리즈설명":   str(safe(0x0008103E, "N/A")),
+        },
+        "시퀀스 파라미터": {
+            "TR (ms)":       tr,
+            "TE (ms)":       te,
+            "TI (ms)":       ti,
+            "Flip Angle (°)": flip,
+            "ETL":           etl,
+            "NEX/NSA":       nex,
+            "Bandwidth":     bw,
+        },
+        "공간 해상도": {
+            "Slice Thickness (mm)": slice_thick,
+            "Matrix Row":           rows,
+            "FOV (mm)":             fov,
+            "Pixel Spacing":        str(pixel_spacing) if pixel_spacing else "N/A",
+        },
+        "DWI 파라미터": {
+            "b-value":              safe_float(0x00189087),
+            "Diffusion Direction":  str(safe(0x00189089, "N/A")),
+        },
+        "제조사 파라미터": mfr_params,
+    }
+    return params, ds
+
+
 def translate_params(params, lang):
     if lang == "ko":
         return params
 
-    key_map = {
-        # 섹션명
+    section_map = {
         "기본 정보":       "Basic Info",
         "시퀀스 파라미터": "Sequence Params",
         "공간 해상도":     "Spatial Resolution",
-        "DWI 파라미터":    "DWI Params",
-        "제조사 파라미터": "Manufacturer Params",
-        # 기본 정보 키
-        "파일명":          "File Name",
-        "제조사":          "Manufacturer",
-        "감지된 제조사":   "Detected Manufacturer",
-        "시퀀스명":        "Sequence Name",
-        "프로토콜명":      "Protocol Name",
-        "촬영부위":        "Body Part",
-        "자장강도(T)":     "Field Strength(T)",
-        "수신코일":        "Receive Coil",
-        "시리즈설명":      "Series Description",
-        # 공간 해상도 키
-        "획득방식(2D/3D)": "Acquisition(2D/3D)",
-    }
-
-    translated = {}
-    for section_ko, section_data in params.items():
-        section_en = key_map.get(section_ko, section_ko)
-        if isinstance(section_data, dict):
-            translated[section_en] = {
-                key_map.get(k, k): v
-                for k, v in section_data.items()
-            }
-        else:
-            translated[section_en] = section_data
-    return translated
-
-def extract_dicom_params(file_bytes, filename=""):
-    ds = pydicom.dcmread(BytesIO(file_bytes), force=True)
-
-    def safe_get(tag, default="N/A"):
-        try:
-            val = ds[tag].value
-            return str(val) if val is not None else default
-        except:
-            return default
-
-    def get_fov():
-        fov = safe_get((0x0018, 0x1100))
-        if fov != "N/A":
-            return fov
-        try:
-            spacing = ds[(0x0028, 0x0030)].value
-            rows    = ds[(0x0028, 0x0010)].value
-            if isinstance(spacing, (list, tuple)):
-                ps = float(spacing[0])
-            else:
-                ps = float(str(spacing).split("\\")[0])
-            return str(round(ps * int(rows), 1))
-        except:
-            pass
-        fov = safe_get((0x0051, 0x100C))
-        if fov != "N/A":
-            return fov
-        fov = safe_get((0x2005, 0x100D))
-        if fov != "N/A":
-            return fov
-        return "N/A"
-
-    def get_slice_thickness():
-        st = safe_get((0x0018, 0x0050))
-        if st != "N/A":
-            return st
-        st = safe_get((0x0043, 0x1039))
-        if st != "N/A":
-            return st
-        return "N/A"
-
-    mfr, manufacturer_raw = detect_manufacturer(ds)
-    mfr_params = extract_manufacturer_params(ds, mfr)
-    mfr_params_filtered = {k: v for k, v in mfr_params.items() if v != "N/A"}
-
-    params = {
-        "기본 정보": {
-            "파일명":        filename,
-            "제조사":        manufacturer_raw,
-            "감지된 제조사": mfr,
-            "시퀀스명":      safe_get((0x0018, 0x0024)),
-            "프로토콜명":    safe_get((0x0018, 0x1030)),
-            "촬영부위":      safe_get((0x0018, 0x0015)),
-            "자장강도(T)":   safe_get((0x0018, 0x0087)),
-            "수신코일":      safe_get((0x0018, 0x1250)),
-            "시리즈설명":    safe_get((0x0008, 0x103E)),
-        },
-        "시퀀스 파라미터": {
-            "TR (ms)":        safe_get((0x0018, 0x0080)),
-            "TE (ms)":        safe_get((0x0018, 0x0081)),
-            "TI (ms)":        safe_get((0x0018, 0x0082)),
-            "Flip Angle (°)": safe_get((0x0018, 0x1314)),
-            "ETL":            safe_get((0x0018, 0x0091)),
-            "NEX/NSA":        safe_get((0x0018, 0x0083)),
-            "Bandwidth":      safe_get((0x0018, 0x0095)),
-        },
-        "공간 해상도": {
-            "Slice Thickness (mm)": get_slice_thickness(),
-            "Pixel Spacing":        safe_get((0x0028, 0x0030)),
-            "Matrix Row":           safe_get((0x0028, 0x0010)),
-            "Matrix Col":           safe_get((0x0028, 0x0011)),
-            "FOV (mm)":             get_fov(),
-            "획득방식(2D/3D)":      safe_get((0x0018, 0x0023)),
-        },
-        "DWI 파라미터": {
-            "B-value": safe_get((0x0019, 0x100C)),
-        },
-        "제조사 파라미터": mfr_params_filtered,
-    }
-    return params, ds
-def create_comparison_table(params, user_baseline, lang="ko"):
-    from translations import get_text
-    T = lambda key: get_text(lang, key)
+        "DWI 
+def create_comparison_table(params, user_baseline, lang):
+    seq_params   = params.get("시퀀스 파라미터", {})
+    space_params = params.get("공간 해상도", {})
+    mfr_params   = params.get("제조사 파라미터", {})
 
     all_params = {}
-    for section in params.values():
-        if isinstance(section, dict):
-            all_params.update(section)
+    all_params.update(seq_params)
+    all_params.update(space_params)
+    all_params.update(mfr_params)
+
+    if lang == "ko":
+        col_param   = "파라미터"
+        col_current = "현재값"
+        col_min     = "최소값"
+        col_optimal = "최적값"
+        col_max     = "최대값"
+        col_unit    = "단위"
+        col_impact  = "영향"
+        col_status  = "상태"
+        col_eval    = "평가"
+        status_opt  = "✅ 최적"
+        status_warn = "⚠️ 경고"
+        status_caut = "🔵 주의"
+        status_na   = "➖ N/A"
+    else:
+        col_param   = "Parameter"
+        col_current = "Current"
+        col_min     = "Min"
+        col_optimal = "Optimal"
+        col_max     = "Max"
+        col_unit    = "Unit"
+        col_impact  = "Impact"
+        col_status  = "Status"
+        col_eval    = "Evaluation"
+        status_opt  = "✅ Optimal"
+        status_warn = "⚠️ Warning"
+        status_caut = "🔵 Caution"
+        status_na   = "➖ N/A"
 
     rows = []
     for param_name, baseline in user_baseline.items():
-        current_val = all_params.get(param_name, "N/A")
-        try:
-            cur = float(current_val)
-            mn  = baseline["min"]
-            opt = baseline["optimal"]
-            mx  = baseline["max"]
-            if cur < mn:
-                status = T("status_low")
-            elif cur > mx:
-                status = T("status_high")
-            elif abs(cur - opt) <= (mx - mn) * 0.1:
-                status = T("status_optimal")
-            else:
-                status = T("status_caution")
-        except:
-            status = T("status_unknown")
-            mn = opt = mx = "-"
-            cur = current_val
+        current = all_params.get(param_name)
+        mn      = baseline.get("min")
+        opt     = baseline.get("optimal")
+        mx      = baseline.get("max")
+        unit    = baseline.get("unit", "")
+        impact  = baseline.get("impact", "")
+
+        if current is None or current == "N/A":
+            status = status_na
+            eval_txt = "-"
+        else:
+            try:
+                cur_f = float(current)
+                if mn <= cur_f <= mx:
+                    if abs(cur_f - opt) / (mx - mn + 1e-9) < 0.15:
+                        status = status_opt
+                        eval_txt = "최적 범위" if lang == "ko" else "Optimal range"
+                    else:
+                        status = status_caut
+                        eval_txt = "허용 범위" if lang == "ko" else "Acceptable range"
+                else:
+                    status = status_warn
+                    if cur_f < mn:
+                        eval_txt = "기준 미달" if lang == "ko" else "Below minimum"
+                    else:
+                        eval_txt = "기준 초과" if lang == "ko" else "Above maximum"
+            except:
+                status   = status_na
+                eval_txt = "-"
 
         rows.append({
-            T("col_param"):   param_name,
-            T("col_current"): current_val,
-            T("col_min"):     mn,
-            T("col_optimal"): opt,
-            T("col_max"):     mx,
-            T("col_unit"):    baseline["unit"],
-            T("col_impact"):  baseline["impact"],
-            T("col_status"):  status,
+            col_param:   param_name,
+            col_current: current if current is not None else "N/A",
+            col_min:     mn,
+            col_optimal: opt,
+            col_max:     mx,
+            col_unit:    unit,
+            col_impact:  impact,
+            col_status:  status,
+            col_eval:    eval_txt,
         })
+
     return pd.DataFrame(rows)
 
 
-def create_radar_chart(params, user_baseline, lang="ko"):
-    from translations import get_text
-    T = lambda key: get_text(lang, key)
+def create_radar_chart(params, user_baseline, lang):
+    seq_params   = params.get("시퀀스 파라미터", {})
+    space_params = params.get("공간 해상도", {})
+    mfr_params   = params.get("제조사 파라미터", {})
 
     all_params = {}
-    for section in params.values():
-        if isinstance(section, dict):
-            all_params.update(section)
+    all_params.update(seq_params)
+    all_params.update(space_params)
+    all_params.update(mfr_params)
 
-    current_vals = []
-    optimal_vals = []
+    scores = []
     labels = []
 
     for param_name, baseline in user_baseline.items():
-        raw = all_params.get(param_name, "N/A")
-        try:
-            cur = float(raw)
-            mn  = baseline["min"]
-            mx  = baseline["max"]
-            opt = baseline["optimal"]
-            if mx != mn:
-                cur_norm = max(0, min(100, (cur - mn) / (mx - mn) * 100))
-                opt_norm = (opt - mn) / (mx - mn) * 100
-                current_vals.append(round(cur_norm, 1))
-                optimal_vals.append(round(opt_norm, 1))
-                labels.append(param_name)
-        except:
-            pass
+        current = all_params.get(param_name)
+        mn      = baseline.get("min")
+        mx      = baseline.get("max")
+        opt     = baseline.get("optimal")
 
-    if not labels:
+        try:
+            cur_f = float(current)
+            rng   = mx - mn if mx != mn else 1
+            score = max(0, min(100, 100 - abs(cur_f - opt) / rng * 100))
+        except:
+            score = 0
+
+        scores.append(score)
+        labels.append(param_name)
+
+    if not scores:
         return None
+
+    labels_closed = labels + [labels[0]]
+    scores_closed = scores + [scores[0]]
 
     fig = go.Figure()
     fig.add_trace(go.Scatterpolar(
-        r=current_vals + [current_vals[0]],
-        theta=labels + [labels[0]],
-        fill="toself",
-        name=T("radar_current"),
-        line_color="royalblue"
-    ))
-    fig.add_trace(go.Scatterpolar(
-        r=optimal_vals + [optimal_vals[0]],
-        theta=labels + [labels[0]],
-        fill="toself",
-        name=T("radar_optimal"),
-        line_color="tomato",
-        opacity=0.5
+        r     = scores_closed,
+        theta = labels_closed,
+        fill  = "toself",
+        name  = "Score",
+        line  = dict(color="#2E6DA4", width=2),
+        fillcolor="rgba(46,109,164,0.2)",
     ))
     fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-        title=T("radar_title"),
-        showlegend=True,
-        height=500
+        polar=dict(
+            radialaxis=dict(visible=True, range=[0, 100])
+        ),
+        showlegend=False,
+        margin=dict(l=40, r=40, t=40, b=40),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor ="rgba(0,0,0,0)",
     )
     return fig
 
 
 def create_gauge_charts(params, user_baseline):
+    seq_params   = params.get("시퀀스 파라미터", {})
+    space_params = params.get("공간 해상도", {})
+    mfr_params   = params.get("제조사 파라미터", {})
+
     all_params = {}
-    for section in params.values():
-        if isinstance(section, dict):
-            all_params.update(section)
+    all_params.update(seq_params)
+    all_params.update(space_params)
+    all_params.update(mfr_params)
 
-    charts = []
+    gauges = []
     for param_name, baseline in user_baseline.items():
-        raw = all_params.get(param_name, "N/A")
+        current = all_params.get(param_name)
+        mn      = baseline.get("min")
+        mx      = baseline.get("max")
+        opt     = baseline.get("optimal")
+        unit    = baseline.get("unit", "")
+
         try:
-            cur = float(raw)
-            mn  = baseline["min"]
-            mx  = baseline["max"]
-            opt = baseline["optimal"]
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number+delta",
-                value=cur,
-                delta={"reference": opt, "valueformat": ".1f"},
-                title={"text": f"{param_name}<br><sub>{baseline['impact']}</sub>"},
-                gauge={
-                    "axis": {"range": [mn * 0.8, mx * 1.2]},
-                    "bar":  {"color": "royalblue"},
-                    "steps": [
-                        {"range": [mn * 0.8, mn], "color": "lightcoral"},
-                        {"range": [mn, mx],        "color": "lightgreen"},
-                        {"range": [mx, mx * 1.2],  "color": "lightcoral"},
-                    ],
-                    "threshold": {
-                        "line":      {"color": "red", "width": 4},
-                        "thickness": 0.75,
-                        "value":     opt
-                    }
-                }
-            ))
-            fig.update_layout(
-                height=250,
-                margin=dict(t=60, b=20, l=20, r=20)
-            )
-            charts.append((param_name, fig))
+            cur_f = float(current)
         except:
-            pass
-    return charts
+            continue
 
+        rng   = mx - mn if mx != mn else 1
+        score = max(0, min(100, 100 - abs(cur_f - opt) / rng * 100))
 
-def analyze_with_openai(params, api_key, user_baseline, selected_seq, lang="ko"):
-    from translations import get_text
+        if score >= 80:
+            color = "#2E7D32"
+        elif score >= 50:
+            color = "#F57F17"
+        else:
+            color = "#C62828"
+
+        fig = go.Figure(go.Indicator(
+            mode  = "gauge+number",
+            value = cur_f,
+            title = {"text": f"{param_name}<br><sub>{unit}</sub>", "font": {"size": 12}},
+            gauge = {
+                "axis":  {"range": [mn, mx]},
+                "bar":   {"color": color},
+                "steps": [
+                    {"range": [mn, opt],  "color": "#E3F2FD"},
+                    {"range": [opt, mx],  "color": "#BBDEFB"},
+                ],
+                "threshold": {
+                    "line":  {"color": "#1B3A5C", "width": 3},
+                    "thickness": 0.75,
+                    "value": opt,
+                },
+            },
+        ))
+        fig.update_layout(
+            height=200,
+            margin=dict(l=20, r=20, t=50, b=20),
+            paper_bgcolor="rgba(0,0,0,0)",
+        )
+        gauges.append((param_name, fig))
+
+    return gauges if gauges else None
+def analyze_with_openai(params, api_key, user_baseline,
+                        selected_seq, lang, custom_prompt=None):
     client = Groq(api_key=api_key)
 
-    mfr         = params["기본 정보"]["감지된 제조사"]
-    mfr_params  = params.get("제조사 파라미터", {})
-    prompt_lang = get_text(lang, "prompt_lang")
+    if custom_prompt:
+        prompt = custom_prompt
+    else:
+        seq_params   = params.get("시퀀스 파라미터", {})
+        space_params = params.get("공간 해상도", {})
+        mfr_params   = params.get("제조사 파라미터", {})
+        basic_params = params.get("기본 정보", {})
 
-    prompt = f"""You are an expert MRI parameter analysis AI. {prompt_lang}
+        mfr      = basic_params.get("감지된 제조사", "UNKNOWN")
+        protocol = basic_params.get("프로토콜명", "N/A")
 
-Selected Sequence: {selected_seq}
-Detected Manufacturer: {mfr}
+        all_params = {}
+        all_params.update(seq_params)
+        all_params.update(space_params)
+        all_params.update(mfr_params)
 
-Extracted DICOM Parameters:
-{json.dumps(params, ensure_ascii=False, indent=2)}
+        param_lines = []
+        for k, v in all_params.items():
+            baseline = user_baseline.get(k, {})
+            mn  = baseline.get("min",     "N/A")
+            opt = baseline.get("optimal", "N/A")
+            mx  = baseline.get("max",     "N/A")
+            unit= baseline.get("unit",    "")
+            param_lines.append(
+                f"  - {k}: 현재={v}{unit} | 기준(최소={mn}, 최적={opt}, 최대={mx})"
+            )
 
-User Baseline (Min/Optimal/Max):
-{json.dumps(user_baseline, ensure_ascii=False, indent=2)}
+        param_text = "\n".join(param_lines)
 
-Manufacturer Specific Parameters:
-{json.dumps(mfr_params, ensure_ascii=False, indent=2)}
+        if lang == "ko":
+            prompt = f"""
+당신은 MRI 전문 방사선사 AI 어시스턴트입니다.
+아래 MRI DICOM 파라미터를 분석하고 전문적인 의견을 제시해주세요.
+
+[스캔 정보]
+- 시퀀스  : {selected_seq}
+- 제조사  : {mfr}
+- 프로토콜: {protocol}
+
+[파라미터 현재값 vs 기준값]
+{param_text}
+
+다음 항목으로 분석해주세요:
+
+## 1. 시퀀스 식별 및 목적
+- 촬영 목적과 임상적 의미
+
+## 2. 파라미터 분석표
+| 파라미터 | 현재값 | 최소 | 최적 | 최대 | 상태 | 평가 |
+|---------|--------|------|------|------|------|------|
+(각 파라미터를 표로 정리)
+
+## 3. 제조사 특정 파라미터 분석
+- {mfr} 장비 특성 고려
+
+## 4. 문제 및 위험 항목
+- 기준 범위를 벗어난 파라미터
+- 임상적 영향
+
+## 5. 최적화 추천
+- 파라미터별 조정 방향
+- 우선순위 순으로 정리
+
+## 6. 종합 평가
+- 전반적인 프로토콜 품질 점수 (100점 만점)
+- 핵심 개선사항 요약
+"""
+        else:
+            prompt = f"""
+You are an expert MRI radiographer AI assistant.
+Analyze the following MRI DICOM parameters and provide professional recommendations.
+
+[Scan Information]
+- Sequence : {selected_seq}
+- Manufacturer: {mfr}
+- Protocol: {protocol}
+
+[Parameters: Current vs Reference]
+{param_text}
 
 Please analyze the following:
 
-1. Sequence Identification & Purpose
-   - Detected manufacturer and device characteristics
-   - Clinical purpose of the sequence
+## 1. Sequence Identification & Purpose
+- Clinical purpose and significance
 
-2. Parameter Analysis Table
-   | Parameter | Current | Min | Optimal | Max | Status | Evaluation |
-   Status: Optimal / Caution / Warning
+## 2. Parameter Analysis Table
+| Parameter | Current | Min | Optimal | Max | Status | Evaluation |
+|-----------|---------|-----|---------|-----|--------|------------|
+(summarize each parameter in table)
 
-3. Manufacturer Specific Parameter Analysis
-   - GE: ARC/ASSET/Noise analysis
-   - Siemens: iPAT/GRAPPA analysis
-   - Philips: SENSE/Water Fat Shift analysis
+## 3. Manufacturer-Specific Analysis
+- Considering {mfr} equipment characteristics
 
-4. Issues & Risk Items
-   - Parameters outside baseline range
-   - Manufacturer specific parameter anomalies
+## 4. Issues & Risk Items
+- Parameters outside reference range
+- Clinical impact
 
-5. Optimization Recommendations
-   - Adjustment direction per parameter
-   - Include tradeoff explanation
+## 5. Optimization Recommendations
+- Adjustment direction per parameter
+- Listed by priority
 
-6. Priority Action Items
-   - Priority 1: Immediate correction needed
-   - Priority 2: Improvement recommended
-   - Priority 3: Optional optimization
-
-7. Overall Image Quality Score
-   - SNR:        X/10
-   - Resolution: X/10
-   - Contrast:   X/10
-   - Overall:    X/10
-   - One-line summary
+## 6. Overall Assessment
+- Overall protocol quality score (out of 100)
+- Summary of key improvements
 """
 
+    if lang == "ko":
+        system_msg = (
+            "당신은 MRI 전문 방사선사 AI입니다. "
+            "한국어로 전문적이고 명확하게 답변하세요. "
+            "파라미터 분석표는 반드시 마크다운 테이블 형식으로 작성하세요."
+        )
+    else:
+        system_msg = (
+            "You are an expert MRI radiographer AI. "
+            "Answer professionally and clearly in English. "
+            "Always write parameter analysis tables in markdown table format."
+        )
+
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=4096
+        model    = "llama3-70b-8192",
+        messages = [
+            {"role": "system",  "content": system_msg},
+            {"role": "user",    "content": prompt},
+        ],
+        temperature = 0.3,
+        max_tokens  = 4096,
     )
+
     return response.choices[0].message.content
