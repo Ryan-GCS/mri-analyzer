@@ -34,7 +34,6 @@ def detect_manufacturer(ds):
             return str(val).upper() if val is not None else default
         except:
             return default
-
     manufacturer = safe_get((0x0008, 0x0070))
     if "GE" in manufacturer:
         return "GE", manufacturer
@@ -79,34 +78,31 @@ def extract_manufacturer_params(ds, mfr):
         }
         ge_params.update(common_advanced)
         return ge_params
-
     elif mfr == "SIEMENS":
         siemens_params = {
-            "iPAT Factor":            safe_get((0x0051, 0x100A)),
-            "FOV Siemens":            safe_get((0x0051, 0x100B)),
-            "Slice Orientation":      safe_get((0x0051, 0x100E)),
-            "BW per Pixel Phase":     safe_get((0x0019, 0x1028)),
-            "Mosaic Image Count":     safe_get((0x0019, 0x100A)),
-            "Slice Duration":         safe_get((0x0019, 0x100B)),
-            "Real Dwell Time":        safe_get((0x0051, 0x1016)),
-            "GRAPPA Factor":          safe_get((0x0051, 0x1011)),
+            "iPAT Factor":        safe_get((0x0051, 0x100A)),
+            "FOV Siemens":        safe_get((0x0051, 0x100B)),
+            "Slice Orientation":  safe_get((0x0051, 0x100E)),
+            "BW per Pixel Phase": safe_get((0x0019, 0x1028)),
+            "Mosaic Image Count": safe_get((0x0019, 0x100A)),
+            "Slice Duration":     safe_get((0x0019, 0x100B)),
+            "Real Dwell Time":    safe_get((0x0051, 0x1016)),
+            "GRAPPA Factor":      safe_get((0x0051, 0x1011)),
         }
         siemens_params.update(common_advanced)
         return siemens_params
-
     elif mfr == "PHILIPS":
         philips_params = {
-            "B-Factor (Philips)":     safe_get((0x2001, 0x1003)),
-            "Diffusion Direction":    safe_get((0x2001, 0x1004)),
-            "Number of Slices":       safe_get((0x2005, 0x1011)),
-            "Prepulse Delay":         safe_get((0x2001, 0x1018)),
-            "Dynamic Scans":          safe_get((0x2001, 0x1081)),
-            "SENSE Factor":           safe_get((0x2005, 0x100E)),
-            "Water Fat Shift":        safe_get((0x2001, 0x1022)),
+            "B-Factor (Philips)": safe_get((0x2001, 0x1003)),
+            "Diffusion Direction":safe_get((0x2001, 0x1004)),
+            "Number of Slices":   safe_get((0x2005, 0x1011)),
+            "Prepulse Delay":     safe_get((0x2001, 0x1018)),
+            "Dynamic Scans":      safe_get((0x2001, 0x1081)),
+            "SENSE Factor":       safe_get((0x2005, 0x100E)),
+            "Water Fat Shift":    safe_get((0x2001, 0x1022)),
         }
         philips_params.update(common_advanced)
         return philips_params
-
     else:
         return common_advanced
 
@@ -121,14 +117,10 @@ def extract_dicom_params(file_bytes, filename=""):
         except:
             return default
 
-    # FOV 제조사별 강화 추출
     def get_fov():
-        # 1단계: 공통 태그
         fov = safe_get((0x0018, 0x1100))
         if fov != "N/A":
             return fov
-
-        # 2단계: Pixel Spacing × Matrix 계산
         try:
             spacing = ds[(0x0028, 0x0030)].value
             rows    = ds[(0x0028, 0x0010)].value
@@ -136,42 +128,29 @@ def extract_dicom_params(file_bytes, filename=""):
                 ps = float(spacing[0])
             else:
                 ps = float(str(spacing).split("\\")[0])
-            fov_calc = round(ps * int(rows), 1)
-            return str(fov_calc)
+            return str(round(ps * int(rows), 1))
         except:
             pass
-
-        # 3단계: Siemens 전용
         fov = safe_get((0x0051, 0x100C))
         if fov != "N/A":
             return fov
-
-        # 4단계: Philips 전용
         fov = safe_get((0x2005, 0x100D))
         if fov != "N/A":
             return fov
-
         return "N/A"
 
-    # Slice Thickness 강화 추출
     def get_slice_thickness():
-        # 1단계: 공통 태그
         st = safe_get((0x0018, 0x0050))
         if st != "N/A":
             return st
-
-        # 2단계: GE 전용
         st = safe_get((0x0043, 0x1039))
         if st != "N/A":
             return st
-
         return "N/A"
 
     mfr, manufacturer_raw = detect_manufacturer(ds)
     mfr_params = extract_manufacturer_params(ds, mfr)
-    mfr_params_filtered = {
-        k: v for k, v in mfr_params.items() if v != "N/A"
-    }
+    mfr_params_filtered = {k: v for k, v in mfr_params.items() if v != "N/A"}
 
     params = {
         "기본 정보": {
@@ -207,9 +186,11 @@ def extract_dicom_params(file_bytes, filename=""):
         },
         "제조사 파라미터": mfr_params_filtered,
     }
-
     return params, ds
-def create_comparison_table(params, user_baseline):
+def create_comparison_table(params, user_baseline, lang="ko"):
+    from translations import get_text
+    T = lambda key: get_text(lang, key)
+
     all_params = {}
     for section in params.values():
         if isinstance(section, dict):
@@ -224,32 +205,35 @@ def create_comparison_table(params, user_baseline):
             opt = baseline["optimal"]
             mx  = baseline["max"]
             if cur < mn:
-                status = "🚨 경고 (낮음)"
+                status = T("status_low")
             elif cur > mx:
-                status = "🚨 경고 (높음)"
+                status = T("status_high")
             elif abs(cur - opt) <= (mx - mn) * 0.1:
-                status = "✅ 최적"
+                status = T("status_optimal")
             else:
-                status = "⚠️ 주의"
+                status = T("status_caution")
         except:
-            status = "❓ 확인불가"
+            status = T("status_unknown")
             mn = opt = mx = "-"
             cur = current_val
 
         rows.append({
-            "파라미터": param_name,
-            "현재값":   current_val,
-            "최소":     mn,
-            "최적":     opt,
-            "최대":     mx,
-            "단위":     baseline["unit"],
-            "영향":     baseline["impact"],
-            "상태":     status,
+            T("col_param"):   param_name,
+            T("col_current"): current_val,
+            T("col_min"):     mn,
+            T("col_optimal"): opt,
+            T("col_max"):     mx,
+            T("col_unit"):    baseline["unit"],
+            T("col_impact"):  baseline["impact"],
+            T("col_status"):  status,
         })
     return pd.DataFrame(rows)
 
 
-def create_radar_chart(params, user_baseline):
+def create_radar_chart(params, user_baseline, lang="ko"):
+    from translations import get_text
+    T = lambda key: get_text(lang, key)
+
     all_params = {}
     for section in params.values():
         if isinstance(section, dict):
@@ -283,20 +267,20 @@ def create_radar_chart(params, user_baseline):
         r=current_vals + [current_vals[0]],
         theta=labels + [labels[0]],
         fill="toself",
-        name="현재값",
+        name=T("radar_current"),
         line_color="royalblue"
     ))
     fig.add_trace(go.Scatterpolar(
         r=optimal_vals + [optimal_vals[0]],
         theta=labels + [labels[0]],
         fill="toself",
-        name="최적값",
+        name=T("radar_optimal"),
         line_color="tomato",
         opacity=0.5
     ))
     fig.update_layout(
         polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-        title="현재값 vs 최적값 비교",
+        title=T("radar_title"),
         showlegend=True,
         height=500
     )
@@ -317,7 +301,6 @@ def create_gauge_charts(params, user_baseline):
             mn  = baseline["min"]
             mx  = baseline["max"]
             opt = baseline["optimal"]
-
             fig = go.Figure(go.Indicator(
                 mode="gauge+number+delta",
                 value=cur,
@@ -348,63 +331,62 @@ def create_gauge_charts(params, user_baseline):
     return charts
 
 
-def analyze_with_openai(params, api_key, user_baseline, selected_seq):
+def analyze_with_openai(params, api_key, user_baseline, selected_seq, lang="ko"):
+    from translations import get_text
     client = Groq(api_key=api_key)
 
-    mfr = params["기본 정보"]["감지된 제조사"]
-    mfr_params = params.get("제조사 파라미터", {})
+    mfr         = params["기본 정보"]["감지된 제조사"]
+    mfr_params  = params.get("제조사 파라미터", {})
+    prompt_lang = get_text(lang, "prompt_lang")
 
-    prompt = f"""
-당신은 MRI 촬영 파라미터 전문 분석 AI입니다. 반드시 한국어로 답변해주세요.
+    prompt = f"""You are an expert MRI parameter analysis AI. {prompt_lang}
 
-선택된 시퀀스: {selected_seq}
-감지된 제조사: {mfr}
+Selected Sequence: {selected_seq}
+Detected Manufacturer: {mfr}
 
-추출된 DICOM 파라미터:
+Extracted DICOM Parameters:
 {json.dumps(params, ensure_ascii=False, indent=2)}
 
-사용자 기준값 (최소/최적/최대):
+User Baseline (Min/Optimal/Max):
 {json.dumps(user_baseline, ensure_ascii=False, indent=2)}
 
-감지된 제조사 전용 파라미터:
+Manufacturer Specific Parameters:
 {json.dumps(mfr_params, ensure_ascii=False, indent=2)}
 
-아래 항목을 분석해주세요:
+Please analyze the following:
 
-1. 📊 시퀀스 판별 및 목적
-   - 감지된 제조사 및 장비 특성 설명
-   - 해당 시퀀스의 임상적 목적
+1. Sequence Identification & Purpose
+   - Detected manufacturer and device characteristics
+   - Clinical purpose of the sequence
 
-2. 📋 파라미터 분석표
-   | 파라미터 | 현재값 | 최소 | 최적 | 최대 | 상태 | 평가 |
-   상태: ✅최적 / ⚠️주의 / 🚨경고
+2. Parameter Analysis Table
+   | Parameter | Current | Min | Optimal | Max | Status | Evaluation |
+   Status: Optimal / Caution / Warning
 
-3. 🏭 제조사 전용 파라미터 분석
-   - 감지된 파라미터만 분석
-   - GE면 ARC/ASSET/Noise 분석
-   - Siemens면 iPAT/GRAPPA 분석
-   - Philips면 SENSE/Water Fat Shift 분석
-   - 감지 안되면 "제조사 전용 파라미터 없음" 표시
+3. Manufacturer Specific Parameter Analysis
+   - GE: ARC/ASSET/Noise analysis
+   - Siemens: iPAT/GRAPPA analysis
+   - Philips: SENSE/Water Fat Shift analysis
 
-4. ⚠️ 문제점 및 위험 항목
-   - 기준값 벗어난 파라미터
-   - 제조사 전용 파라미터 이상 여부
+4. Issues & Risk Items
+   - Parameters outside baseline range
+   - Manufacturer specific parameter anomalies
 
-5. 💡 최적화 권고사항
-   - 파라미터별 조정 방향
-   - 트레이드오프 설명 포함
+5. Optimization Recommendations
+   - Adjustment direction per parameter
+   - Include tradeoff explanation
 
-6. 🎯 우선순위 액션 아이템
-   - 1순위: 즉시 수정 필요
-   - 2순위: 개선 권장
-   - 3순위: 선택적 최적화
+6. Priority Action Items
+   - Priority 1: Immediate correction needed
+   - Priority 2: Improvement recommended
+   - Priority 3: Optional optimization
 
-7. 📈 전체 영상 품질 점수
-   - SNR:    X/10
-   - 해상도: X/10
-   - 대조도: X/10
-   - 전체:   X/10
-   - 종합 평가 한줄 요약
+7. Overall Image Quality Score
+   - SNR:        X/10
+   - Resolution: X/10
+   - Contrast:   X/10
+   - Overall:    X/10
+   - One-line summary
 """
 
     response = client.chat.completions.create(
