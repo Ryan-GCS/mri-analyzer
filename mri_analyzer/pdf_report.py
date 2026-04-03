@@ -4,12 +4,11 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    HRFlowable, Image as RLImage, KeepTogether
+    HRFlowable, Image as RLImage
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
-from reportlab.platypus.flowables import HRFlowable
 from datetime import datetime
 from io import BytesIO
 import plotly.io as pio
@@ -32,77 +31,57 @@ def register_fonts():
     return "Helvetica"
 
 
-# ── 컬러 팔레트 ────────────────────────────────────────────
-C_DARK       = colors.HexColor("#1A1A2E")   # 헤더 배경
-C_ACCENT     = colors.HexColor("#E8A020")   # 오렌지 포인트
-C_BLUE       = colors.HexColor("#2E86C1")   # 파랑
-C_LIGHT_BG   = colors.HexColor("#F8F9FA")   # 연한 배경
-C_BORDER     = colors.HexColor("#DEE2E6")   # 테두리
-C_TEXT_DARK  = colors.HexColor("#212529")   # 진한 텍스트
-C_TEXT_GRAY  = colors.HexColor("#6C757D")   # 회색 텍스트
-C_WHITE      = colors.white
-C_GOOD_BG    = colors.HexColor("#D4EDDA")
-C_GOOD_TEXT  = colors.HexColor("#155724")
-C_WARN_BG    = colors.HexColor("#FFF3CD")
-C_WARN_TEXT  = colors.HexColor("#856404")
-C_BAD_BG     = colors.HexColor("#F8D7DA")
-C_BAD_TEXT   = colors.HexColor("#721C24")
-C_CAUTION_BG = colors.HexColor("#D1ECF1")
-C_CAUTION_TEXT = colors.HexColor("#0C5460")
+C_DARK        = colors.HexColor("#1A1A2E")
+C_ACCENT      = colors.HexColor("#E8A020")
+C_BLUE        = colors.HexColor("#2E86C1")
+C_LIGHT_BG    = colors.HexColor("#F8F9FA")
+C_BORDER      = colors.HexColor("#DEE2E6")
+C_TEXT_DARK   = colors.HexColor("#212529")
+C_TEXT_GRAY   = colors.HexColor("#6C757D")
+C_WHITE       = colors.white
+C_GOOD_BG     = colors.HexColor("#D4EDDA")
+C_GOOD_TEXT   = colors.HexColor("#155724")
+C_WARN_BG     = colors.HexColor("#FFF3CD")
+C_WARN_TEXT   = colors.HexColor("#856404")
+C_BAD_BG      = colors.HexColor("#F8D7DA")
+C_BAD_TEXT    = colors.HexColor("#721C24")
+C_CAUTION_BG  = colors.HexColor("#D1ECF1")
+C_CAUTION_TEXT= colors.HexColor("#0C5460")
 
 
 def get_styles(fn):
     s = getSampleStyleSheet()
     s.add(ParagraphStyle(
-        name="Title",
-        fontName=fn, fontSize=22,
+        name="ReportTitle",
+        fontName=fn, fontSize=20,
         textColor=C_WHITE,
-        leading=28, spaceAfter=2,
+        leading=26, spaceAfter=2,
         alignment=TA_LEFT,
     ))
     s.add(ParagraphStyle(
-        name="SubTitle",
+        name="ReportSubTitle",
         fontName=fn, fontSize=11,
         textColor=colors.HexColor("#AAAAAA"),
         leading=16, spaceAfter=0,
         alignment=TA_LEFT,
     ))
     s.add(ParagraphStyle(
-        name="HeaderInfo",
-        fontName=fn, fontSize=8,
-        textColor=colors.HexColor("#AAAAAA"),
-        leading=12, alignment=TA_LEFT,
-    ))
-    s.add(ParagraphStyle(
-        name="HeaderInfoVal",
-        fontName=fn, fontSize=9,
-        textColor=C_WHITE,
-        leading=12, alignment=TA_LEFT,
-    ))
-    s.add(ParagraphStyle(
-        name="SectionTitle",
-        fontName=fn, fontSize=13,
-        textColor=C_TEXT_DARK,
-        leading=18, spaceBefore=6, spaceAfter=4,
-        alignment=TA_LEFT,
-    ))
-    s.add(ParagraphStyle(
-        name="Normal",
+        name="NormalKo",
         fontName=fn, fontSize=8.5,
         textColor=C_TEXT_DARK,
         leading=13, spaceAfter=2,
-    ))
-    s.add(ParagraphStyle(
-        name="Small",
-        fontName=fn, fontSize=7.5,
-        textColor=C_TEXT_GRAY,
-        leading=11, spaceAfter=2,
     ))
     s.add(ParagraphStyle(
         name="Disclaimer",
         fontName=fn, fontSize=7,
         textColor=C_TEXT_GRAY,
         leading=10, spaceAfter=2,
+    ))
+    s.add(ParagraphStyle(
+        name="DateRight",
+        fontName=fn, fontSize=9,
+        textColor=colors.HexColor("#AAAAAA"),
+        alignment=TA_RIGHT,
     ))
     return s
 
@@ -115,27 +94,47 @@ def fig_to_image(fig, width=500, height=350):
         return BytesIO(img_bytes)
     except:
         return None
+
+
+def section_title(txt, fn):
+    data = [[
+        Paragraph(f"<b>{txt}</b>", ParagraphStyle(
+            name="st", fontName=fn, fontSize=12,
+            textColor=C_TEXT_DARK, leading=16,
+        ))
+    ]]
+    t = Table(data, colWidths=[180*mm])
+    t.setStyle(TableStyle([
+        ("LINEBELOW",     (0, 0), (-1, -1), 1.5, C_ACCENT),
+        ("TOPPADDING",    (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
+    ]))
+    return t
 def build_header(params, selected_seq, lang, fn, now):
     ko_basic = params.get("기본 정보", {})
 
     if lang == "ko":
+        title_sub    = "파라미터 분석 리포트"
         lbl_seq      = "시퀀스"
         lbl_mfr      = "제조사"
         lbl_field    = "자장강도"
         lbl_protocol = "프로토콜"
         lbl_date     = "분석일시"
         lbl_coil     = "수신코일"
-        title_main   = "MRI DICOM"
-        title_sub    = "파라미터 분석 리포트"
     else:
+        title_sub    = "Parameter Analysis Report"
         lbl_seq      = "SEQUENCE"
         lbl_mfr      = "MANUFACTURER"
         lbl_field    = "FIELD STRENGTH"
         lbl_protocol = "PROTOCOL"
-        lbl_date     = "SCAN DATE"
+        lbl_date     = "DATE"
         lbl_coil     = "COIL"
-        title_main   = "MRI DICOM"
-        title_sub    = "Parameter Analysis Report"
+
+    mfr      = ko_basic.get("제조사", "N/A")
+    field    = ko_basic.get("자장강도(T)", "N/A")
+    protocol = ko_basic.get("프로토콜명", "N/A")
+    coil     = ko_basic.get("수신코일", "N/A")
 
     def lbl(txt):
         return Paragraph(txt, ParagraphStyle(
@@ -149,96 +148,83 @@ def build_header(params, selected_seq, lang, fn, now):
             textColor=C_WHITE, leading=12,
         ))
 
-    mfr      = ko_basic.get("제조사", ko_basic.get("Manufacturer", "N/A"))
-    field    = ko_basic.get("자장강도(T)", ko_basic.get("Field Strength(T)", "N/A"))
-    protocol = ko_basic.get("프로토콜명", ko_basic.get("Protocol Name", "N/A"))
-    coil     = ko_basic.get("수신코일", ko_basic.get("Receive Coil", "N/A"))
-
-    # 제목 영역
-    title_data = [[
+    title_row = [[
         Paragraph(
-            f'<font size="22"><b>{title_main}</b></font>'
-            f' <font size="13" color="#AAAAAA">{title_sub}</font>',
-            ParagraphStyle(
-                name="mt", fontName=fn, fontSize=22,
-                textColor=C_WHITE, leading=28,
-            )
-        ),
-    ]]
-
-    # 정보 영역 (가로 배치)
-    info_data = [[
-        lbl(lbl_seq),      lbl(lbl_mfr),   lbl(lbl_field),
-        lbl(lbl_protocol), lbl(lbl_coil),  lbl(lbl_date),
-    ],[
-        val(selected_seq), val(mfr),        val(f"{field} T"),
-        val(protocol),     val(coil),       val(now),
-    ]]
-
-    info_table = Table(
-        info_data,
-        colWidths=[30*mm, 35*mm, 28*mm, 35*mm, 25*mm, 30*mm]
-    )
-    info_table.setStyle(TableStyle([
-        ("LEFTPADDING",  (0,0), (-1,-1), 0),
-        ("RIGHTPADDING", (0,0), (-1,-1), 4),
-        ("TOPPADDING",   (0,0), (-1,-1), 1),
-        ("BOTTOMPADDING",(0,0), (-1,-1), 1),
-        ("VALIGN",       (0,0), (-1,-1), "TOP"),
-    ]))
-
-    # 전체 헤더 박스
-    header_data = [
-        [Paragraph(
-            f'<b>{title_main}</b>  '
+            f"<b>MRI DICOM</b>  "
             f'<font color="#AAAAAA" size="13">{title_sub}</font>',
             ParagraphStyle(
                 name="ht", fontName=fn, fontSize=20,
+                textColor=C_WHITE, leading=26,
+            )
+        )
+    ]]
+
+    info_row = [[
+        lbl(lbl_seq),
+        lbl(lbl_mfr),
+        lbl(lbl_field),
+        lbl(lbl_protocol),
+        lbl(lbl_coil),
+        lbl(lbl_date),
+    ],[
+        val(selected_seq),
+        val(mfr),
+        val(f"{field} T"),
+        val(protocol),
+        val(coil),
+        val(now),
+    ]]
+
+    info_table = Table(
+        info_row,
+        colWidths=[32*mm, 35*mm, 26*mm, 35*mm, 26*mm, 30*mm]
+    )
+    info_table.setStyle(TableStyle([
+        ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING",   (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING",(0, 0), (-1, -1), 1),
+        ("VALIGN",       (0, 0), (-1, -1), "TOP"),
+    ]))
+
+    header_data = [
+        [Paragraph(
+            f"<b>MRI DICOM</b>  "
+            f'<font color="#AAAAAA" size="13">{title_sub}</font>',
+            ParagraphStyle(
+                name="ht2", fontName=fn, fontSize=20,
                 textColor=C_WHITE, leading=26,
             )
         )],
         [info_table],
     ]
 
-    header_table = Table(header_data, colWidths=[180*mm])
+    header_table = Table(header_data, colWidths=[184*mm])
     header_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0,0), (-1,-1), C_DARK),
-        ("TOPPADDING",    (0,0), (-1,-1), 8),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 8),
-        ("LEFTPADDING",   (0,0), (-1,-1), 10),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 10),
-        ("LINEBELOW",     (0,0), (-1,0),  0.5, colors.HexColor("#333355")),
+        ("BACKGROUND",    (0, 0), (-1, -1), C_DARK),
+        ("TOPPADDING",    (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+        ("LINEBELOW",     (0, 0), (-1, 0),  0.5, colors.HexColor("#333355")),
     ]))
     return header_table
 
 
 def build_info_cards(params, lang, fn):
-    ko_basic = params.get("기본 정보", {})
     ko_seq   = params.get("시퀀스 파라미터", {})
     ko_space = params.get("공간 해상도", {})
 
-    if lang == "ko":
-        items = [
-            ("TR",           ko_seq.get("TR (ms)", "N/A"),   "ms"),
-            ("TE",           ko_seq.get("TE (ms)", "N/A"),   "ms"),
-            ("TI",           ko_seq.get("TI (ms)", "N/A"),   "ms"),
-            ("Flip Angle",   ko_seq.get("Flip Angle (°)", "N/A"), "°"),
-            ("ETL",          ko_seq.get("ETL", "N/A"),       ""),
-            ("NEX/NSA",      ko_seq.get("NEX/NSA", "N/A"),   ""),
-            ("Slice Thick",  ko_space.get("Slice Thickness (mm)", "N/A"), "mm"),
-            ("FOV",          ko_space.get("FOV (mm)", "N/A"), "mm"),
-        ]
-    else:
-        items = [
-            ("TR",           ko_seq.get("TR (ms)", "N/A"),   "ms"),
-            ("TE",           ko_seq.get("TE (ms)", "N/A"),   "ms"),
-            ("TI",           ko_seq.get("TI (ms)", "N/A"),   "ms"),
-            ("Flip Angle",   ko_seq.get("Flip Angle (°)", "N/A"), "°"),
-            ("ETL",          ko_seq.get("ETL", "N/A"),       ""),
-            ("NEX/NSA",      ko_seq.get("NEX/NSA", "N/A"),   ""),
-            ("Slice Thick",  ko_space.get("Slice Thickness (mm)", "N/A"), "mm"),
-            ("FOV",          ko_space.get("FOV (mm)", "N/A"), "mm"),
-        ]
+    items = [
+        ("TR",          ko_seq.get("TR (ms)", "N/A"),           "ms"),
+        ("TE",          ko_seq.get("TE (ms)", "N/A"),           "ms"),
+        ("TI",          ko_seq.get("TI (ms)", "N/A"),           "ms"),
+        ("Flip Angle",  ko_seq.get("Flip Angle (°)", "N/A"),    "deg"),
+        ("ETL",         ko_seq.get("ETL", "N/A"),               ""),
+        ("NEX/NSA",     ko_seq.get("NEX/NSA", "N/A"),           ""),
+        ("Slice Thick", ko_space.get("Slice Thickness (mm)", "N/A"), "mm"),
+        ("FOV",         ko_space.get("FOV (mm)", "N/A"),        "mm"),
+    ]
 
     def card(label, value, unit):
         inner = Table([
@@ -254,38 +240,31 @@ def build_info_cards(params, lang, fn):
                 name="cu", fontName=fn, fontSize=7,
                 textColor=C_TEXT_GRAY, leading=10,
             ))],
-        ], colWidths=[20*mm])
+        ], colWidths=[40*mm])
         inner.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0), (-1,-1), C_WHITE),
-            ("BOX",           (0,0), (-1,-1), 0.5, C_BORDER),
-            ("TOPPADDING",    (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-            ("LEFTPADDING",   (0,0), (-1,-1), 6),
-            ("RIGHTPADDING",  (0,0), (-1,-1), 6),
-            ("LINEABOVE",     (0,0), (-1,0),  2, C_ACCENT),
+            ("BACKGROUND",    (0, 0), (-1, -1), C_WHITE),
+            ("BOX",           (0, 0), (-1, -1), 0.5, C_BORDER),
+            ("TOPPADDING",    (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+            ("LINEABOVE",     (0, 0), (-1, 0),  2, C_ACCENT),
         ]))
         return inner
 
     cards = [card(l, v, u) for l, v, u in items]
-
-    # 4개씩 2줄
-    row1 = cards[:4]
-    row2 = cards[4:]
+    row1  = cards[:4]
+    row2  = cards[4:]
     while len(row2) < 4:
         row2.append("")
 
-    card_table = Table(
-        [row1, row2],
-        colWidths=[22*mm]*4 + [22*mm]*4,
-        colWidths=[22*mm, 22*mm, 22*mm, 22*mm],
-    )
-    card_table = Table([row1, row2], colWidths=[43*mm]*4)
+    card_table = Table([row1, row2], colWidths=[44*mm, 44*mm, 44*mm, 44*mm])
     card_table.setStyle(TableStyle([
-        ("LEFTPADDING",  (0,0), (-1,-1), 2),
-        ("RIGHTPADDING", (0,0), (-1,-1), 2),
-        ("TOPPADDING",   (0,0), (-1,-1), 2),
-        ("BOTTOMPADDING",(0,0), (-1,-1), 2),
-        ("VALIGN",       (0,0), (-1,-1), "TOP"),
+        ("LEFTPADDING",  (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("TOPPADDING",   (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING",(0, 0), (-1, -1), 2),
+        ("VALIGN",       (0, 0), (-1, -1), "TOP"),
     ]))
     return card_table
 def build_comparison_table(df, fn, lang):
@@ -358,7 +337,6 @@ def build_comparison_table(df, fn, lang):
         ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
         ("GRID",          (0, 0), (-1, -1), 0.3, C_BORDER),
-        ("LINEBELOW",     (0, 1), (-1, -1), 0.3, C_BORDER),
     ]
 
     for idx, (_, row) in enumerate(df.iterrows()):
@@ -399,31 +377,14 @@ def build_gauge_grid(gauge_figs, fn):
 
     t = Table(rows, colWidths=[58*mm, 58*mm, 58*mm])
     t.setStyle(TableStyle([
-        ("VALIGN",       (0,0), (-1,-1), "MIDDLE"),
-        ("ALIGN",        (0,0), (-1,-1), "CENTER"),
-        ("LEFTPADDING",  (0,0), (-1,-1), 2),
-        ("RIGHTPADDING", (0,0), (-1,-1), 2),
-        ("TOPPADDING",   (0,0), (-1,-1), 2),
-        ("BOTTOMPADDING",(0,0), (-1,-1), 2),
+        ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN",        (0, 0), (-1, -1), "CENTER"),
+        ("LEFTPADDING",  (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("TOPPADDING",   (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING",(0, 0), (-1, -1), 2),
     ]))
     return t
-def section_title(txt, fn):
-    data = [[
-        Paragraph(f"<b>{txt}</b>", ParagraphStyle(
-            name="st", fontName=fn, fontSize=12,
-            textColor=C_TEXT_DARK, leading=16,
-        ))
-    ]]
-    t = Table(data, colWidths=[180*mm])
-    t.setStyle(TableStyle([
-        ("LINEBELOW",     (0,0), (-1,-1), 1.5, C_ACCENT),
-        ("TOPPADDING",    (0,0), (-1,-1), 8),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-        ("LEFTPADDING",   (0,0), (-1,-1), 0),
-    ]))
-    return t
-
-
 def generate_pdf_report(params, user_baseline, df, radar_fig, gauge_figs,
                         ai_result, selected_seq, lang="ko"):
     fn     = register_fonts()
@@ -445,9 +406,8 @@ def generate_pdf_report(params, user_baseline, df, radar_fig, gauge_figs,
     if lang == "ko":
         sec1 = "기본 파라미터"
         sec2 = "파라미터 비교 분석"
-        sec3 = "파라미터 적합도"
-        sec4 = "레이더 차트"
-        sec5 = "AI 분석 결과"
+        sec3 = "파라미터 적합도 & 레이더 차트"
+        sec4 = "AI 분석 결과"
         disclaimer_lines = [
             "📚 파라미터 기준값 출처 : ACR · ISMRM · ESUR · RSNA 가이드라인, "
             "GE/Siemens/Philips 공식 매뉴얼, 국내외 대학병원 임상 프로토콜, "
@@ -458,9 +418,8 @@ def generate_pdf_report(params, user_baseline, df, radar_fig, gauge_figs,
     else:
         sec1 = "Basic Parameters"
         sec2 = "Parameter Comparison"
-        sec3 = "Parameter Fitness"
-        sec4 = "Radar Chart"
-        sec5 = "AI Analysis Result"
+        sec3 = "Parameter Fitness & Radar Chart"
+        sec4 = "AI Analysis Result"
         disclaimer_lines = [
             "📚 References : ACR · ISMRM · ESUR · RSNA Guidelines, "
             "GE/Siemens/Philips Official Manuals, Academic Medical Center Protocols, "
@@ -488,42 +447,37 @@ def generate_pdf_report(params, user_baseline, df, radar_fig, gauge_figs,
         story.append(comp)
     story.append(Spacer(1, 6*mm))
 
-    # ── 3. 게이지 차트 + 레이더 차트 나란히 ──────────────────
+    # ── 3. 게이지 차트 + 레이더 차트 ─────────────────────────
     gauge_grid = build_gauge_grid(gauge_figs, fn)
     radar_img  = fig_to_image(radar_fig, width=450, height=380) if radar_fig else None
 
-    if gauge_grid and radar_img:
-        story.append(section_title(sec3, fn))
-        story.append(Spacer(1, 3*mm))
+    story.append(section_title(sec3, fn))
+    story.append(Spacer(1, 3*mm))
 
+    if gauge_grid and radar_img:
         radar_rl   = RLImage(radar_img, width=80*mm, height=68*mm)
         side_data  = [[gauge_grid, radar_rl]]
         side_table = Table(side_data, colWidths=[100*mm, 80*mm])
         side_table.setStyle(TableStyle([
-            ("VALIGN",       (0,0), (-1,-1), "TOP"),
-            ("LEFTPADDING",  (0,0), (-1,-1), 0),
-            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+            ("VALIGN",       (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING",   (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING",(0, 0), (-1, -1), 0),
         ]))
         story.append(side_table)
-
     elif gauge_grid:
-        story.append(section_title(sec3, fn))
-        story.append(Spacer(1, 3*mm))
         story.append(gauge_grid)
-
     elif radar_img:
-        story.append(section_title(sec4, fn))
-        story.append(Spacer(1, 3*mm))
         story.append(RLImage(radar_img, width=100*mm, height=85*mm))
 
     story.append(Spacer(1, 6*mm))
 
     # ── 4. AI 분석 결과 ───────────────────────────────────────
     if ai_result:
-        story.append(section_title(sec5, fn))
+        story.append(section_title(sec4, fn))
         story.append(Spacer(1, 3*mm))
 
-        ai_bg_data = [[]]
         ai_paragraphs = []
         for line in ai_result.split("\n"):
             line = line.strip()
@@ -533,26 +487,30 @@ def generate_pdf_report(params, user_baseline, df, radar_fig, gauge_figs,
             line = line.replace("##", "").replace("**", "").strip()
             if line.startswith("#"):
                 line = line.lstrip("#").strip()
-                ai_paragraphs.append(Paragraph(f"<b>{line}</b>", ParagraphStyle(
-                    name="aih", fontName=fn, fontSize=9,
-                    textColor=C_DARK, leading=13,
-                    spaceBefore=4,
-                )))
+                ai_paragraphs.append(Paragraph(
+                    f"<b>{line}</b>",
+                    ParagraphStyle(
+                        name="aih", fontName=fn, fontSize=9,
+                        textColor=C_DARK, leading=13, spaceBefore=4,
+                    )
+                ))
             else:
-                ai_paragraphs.append(Paragraph(line, styles["Normal"]))
+                ai_paragraphs.append(Paragraph(
+                    line, styles["NormalKo"]
+                ))
 
         ai_inner = Table(
             [[p] for p in ai_paragraphs],
-            colWidths=[174*mm]
+            colWidths=[178*mm]
         )
         ai_inner.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0), (-1,-1), C_LIGHT_BG),
-            ("BOX",           (0,0), (-1,-1), 0.5, C_BORDER),
-            ("LEFTPADDING",   (0,0), (-1,-1), 8),
-            ("RIGHTPADDING",  (0,0), (-1,-1), 8),
-            ("TOPPADDING",    (0,0), (-1,-1), 2),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 2),
-            ("LINEABOVE",     (0,0), (-1,0),  2, C_ACCENT),
+            ("BACKGROUND",    (0, 0), (-1, -1), C_LIGHT_BG),
+            ("BOX",           (0, 0), (-1, -1), 0.5, C_BORDER),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+            ("TOPPADDING",    (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LINEABOVE",     (0, 0), (-1, 0),  2, C_ACCENT),
         ]))
         story.append(ai_inner)
         story.append(Spacer(1, 6*mm))
