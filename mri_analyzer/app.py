@@ -112,11 +112,12 @@ with st.sidebar:
                     "unit":    values["unit"],
                     "impact":  values["impact"],
                 }
-
- T = lambda key: get_text(lang, key)
+T = lambda key: get_text(lang, key)
 
 st.title(T("app_title"))
 st.warning(T("app_warning"))
+with st.expander(T("reference_header")):
+    st.markdown(T("reference_body"))
 st.markdown("---")
 
 st.header(T("upload_header"))
