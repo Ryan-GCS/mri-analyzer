@@ -1,10 +1,7 @@
 TRANSLATIONS = {
     "ko": {
-        # 앱 기본
         "app_title":        "🧠 MRI DICOM AI 파라미터 분석기",
         "app_warning":      "⚠️ 본 서비스는 MRI 파라미터 분석 보조 도구입니다.\nAI 분석 결과는 참고용이며 최종 판단은 반드시 전문의가 해야 합니다.\n환자 개인정보가 포함된 DICOM 파일 업로드를 금지합니다.",
-
-        # 사이드바
         "language":         "🌐 언어 / Language",
         "seq_select":       "🎯 시퀀스 선택",
         "seq_label":        "분석할 시퀀스",
@@ -16,8 +13,6 @@ TRANSLATIONS = {
         "min":              "최소",
         "optimal":          "최적",
         "max":              "최대",
-
-        # 업로드
         "upload_header":    "📁 DICOM 파일 업로드",
         "upload_caption":   "✅ .dcm 파일 또는 .zip 압축파일 모두 지원",
         "upload_label":     "DICOM 파일을 드래그하거나 클릭하여 업로드",
@@ -27,14 +22,10 @@ TRANSLATIONS = {
         "zip_select":       "분석할 파일 선택",
         "dcm_spinner":      "📂 DICOM 파일 읽는 중...",
         "dcm_error":        "❌ DICOM 오류: {}",
-
-        # 제조사 배너
         "mfr_ge":           "🔵 GE 장비 감지됨 - GE 전용 파라미터 추출 완료",
         "mfr_siemens":      "🔴 Siemens 장비 감지됨 - iPAT 등 전용 파라미터 추출 완료",
         "mfr_philips":      "🟡 Philips 장비 감지됨 - SENSE 등 전용 파라미터 추출 완료",
         "mfr_unknown":      "⚠️ 제조사를 감지하지 못했습니다 - 공통 파라미터만 표시",
-
-        # 탭
         "tab_basic":        "기본정보",
         "tab_seq":          "시퀀스파라미터",
         "tab_spatial":      "공간해상도",
@@ -42,8 +33,6 @@ TRANSLATIONS = {
         "tab_ge":           "GE전용",
         "tab_siemens":      "Siemens전용",
         "tab_philips":      "Philips전용",
-
-        # 섹션
         "params_header":    "📊 추출된 파라미터",
         "compare_header":   "📋 기준값 비교표",
         "radar_header":     "📡 파라미터 레이더 차트",
@@ -56,8 +45,6 @@ TRANSLATIONS = {
         "ai_error":         "❌ AI 분석 오류: {}",
         "ai_no_key":        "❌ API Key가 설정되지 않았습니다. 관리자에게 문의하세요.",
         "download_button":  "📥 분석 결과 다운로드",
-
-        # 비교표 컬럼
         "col_param":        "파라미터",
         "col_current":      "현재값",
         "col_min":          "최소",
@@ -66,23 +53,15 @@ TRANSLATIONS = {
         "col_unit":         "단위",
         "col_impact":       "영향",
         "col_status":       "상태",
-
-        # 상태
         "status_optimal":   "✅ 최적",
         "status_caution":   "⚠️ 주의",
         "status_low":       "🚨 경고 (낮음)",
         "status_high":      "🚨 경고 (높음)",
         "status_unknown":   "❓ 확인불가",
-
-        # 레이더
         "radar_current":    "현재값",
         "radar_optimal":    "최적값",
         "radar_title":      "현재값 vs 최적값 비교",
-
-        # AI 프롬프트
         "prompt_lang":      "반드시 한국어로 답변해주세요.",
-
-        # Impact 번역
         "impact_map": {
             "T1 대조도":         "T1 대조도",
             "T2 대조도":         "T2 대조도",
@@ -109,14 +88,34 @@ TRANSLATIONS = {
             "조직억제":          "조직억제",
             "환자 안전":         "환자 안전",
         },
+        "label_map": {
+            "🧠 Brain - T1 (뇌 구조)":           "🧠 Brain - T1 (뇌 구조)",
+            "🧠 Brain - T2 (부종/병변)":          "🧠 Brain - T2 (부종/병변)",
+            "🧠 Brain - FLAIR (백질 병변)":       "🧠 Brain - FLAIR (백질 병변)",
+            "🧠 Brain - DWI (급성 뇌경색)":       "🧠 Brain - DWI (급성 뇌경색)",
+            "🧠 Brain - GRE/SWI (출혈/철분)":     "🧠 Brain - GRE/SWI (출혈/철분)",
+            "🧠 Brain - MRA (뇌혈관)":            "🧠 Brain - MRA (뇌혈관)",
+            "🔧 C-Spine - T1 (경추 구조)":        "🔧 C-Spine - T1 (경추 구조)",
+            "🔧 C-Spine - T2 (경추 디스크/병변)": "🔧 C-Spine - T2 (경추 디스크/병변)",
+            "🔧 C-Spine - STIR (경추 부종)":      "🔧 C-Spine - STIR (경추 부종)",
+            "🦴 L-Spine - T1 (요추 구조)":        "🦴 L-Spine - T1 (요추 구조)",
+            "🦴 L-Spine - T2 (요추 디스크/병변)": "🦴 L-Spine - T2 (요추 디스크/병변)",
+            "🦴 L-Spine - STIR (요추 부종)":      "🦴 L-Spine - STIR (요추 부종)",
+            "🦵 Knee - T1 (연골/뼈)":             "🦵 Knee - T1 (연골/뼈)",
+            "🦵 Knee - T2 (반월판/인대)":         "🦵 Knee - T2 (반월판/인대)",
+            "🦵 Knee - PD (연골/반월판)":         "🦵 Knee - PD (연골/반월판)",
+            "🦵 Knee - STIR (부종/염증)":         "🦵 Knee - STIR (부종/염증)",
+            "🫀 Shoulder - T1 (회전근개)":        "🫀 Shoulder - T1 (회전근개)",
+            "🫀 Shoulder - T2 (힘줄/점액낭)":     "🫀 Shoulder - T2 (힘줄/점액낭)",
+            "🫀 Shoulder - PD (회전근개)":        "🫀 Shoulder - PD (회전근개)",
+            "🫁 Abdomen - T1 (간/췌장)":          "🫁 Abdomen - T1 (간/췌장)",
+            "🫁 Abdomen - T2 (담도/췌관)":        "🫁 Abdomen - T2 (담도/췌관)",
+            "🫁 Abdomen - DWI (종양 감별)":       "🫁 Abdomen - DWI (종양 감별)",
+        },
     },
-
     "en": {
-        # 앱 기본
         "app_title":        "🧠 MRI DICOM AI Parameter Analyzer",
         "app_warning":      "⚠️ This service is an MRI parameter analysis assistant tool.\nAI analysis results are for reference only. Final decisions must be made by a qualified physician.\nUploading DICOM files containing patient personal information is prohibited.",
-
-        # 사이드바
         "language":         "🌐 언어 / Language",
         "seq_select":       "🎯 Sequence Selection",
         "seq_label":        "Select Sequence",
@@ -128,8 +127,6 @@ TRANSLATIONS = {
         "min":              "Min",
         "optimal":          "Optimal",
         "max":              "Max",
-
-        # 업로드
         "upload_header":    "📁 DICOM File Upload",
         "upload_caption":   "✅ Supports .dcm files or .zip archives",
         "upload_label":     "Drag and drop or click to upload DICOM file",
@@ -139,14 +136,10 @@ TRANSLATIONS = {
         "zip_select":       "Select file to analyze",
         "dcm_spinner":      "📂 Reading DICOM file...",
         "dcm_error":        "❌ DICOM error: {}",
-
-        # 제조사 배너
         "mfr_ge":           "🔵 GE device detected - GE specific parameters extracted",
         "mfr_siemens":      "🔴 Siemens device detected - iPAT and specific parameters extracted",
         "mfr_philips":      "🟡 Philips device detected - SENSE and specific parameters extracted",
         "mfr_unknown":      "⚠️ Manufacturer not detected - showing common parameters only",
-
-        # 탭
         "tab_basic":        "Basic Info",
         "tab_seq":          "Sequence Params",
         "tab_spatial":      "Spatial Resolution",
@@ -154,8 +147,6 @@ TRANSLATIONS = {
         "tab_ge":           "GE Specific",
         "tab_siemens":      "Siemens Specific",
         "tab_philips":      "Philips Specific",
-
-        # 섹션
         "params_header":    "📊 Extracted Parameters",
         "compare_header":   "📋 Baseline Comparison Table",
         "radar_header":     "📡 Parameter Radar Chart",
@@ -168,8 +159,6 @@ TRANSLATIONS = {
         "ai_error":         "❌ AI analysis error: {}",
         "ai_no_key":        "❌ API Key not configured. Please contact administrator.",
         "download_button":  "📥 Download Analysis Result",
-
-        # 비교표 컬럼
         "col_param":        "Parameter",
         "col_current":      "Current",
         "col_min":          "Min",
@@ -178,23 +167,15 @@ TRANSLATIONS = {
         "col_unit":         "Unit",
         "col_impact":       "Impact",
         "col_status":       "Status",
-
-        # 상태
         "status_optimal":   "✅ Optimal",
         "status_caution":   "⚠️ Caution",
         "status_low":       "🚨 Warning (Low)",
         "status_high":      "🚨 Warning (High)",
         "status_unknown":   "❓ Unknown",
-
-        # 레이더
         "radar_current":    "Current",
         "radar_optimal":    "Optimal",
         "radar_title":      "Current vs Optimal Comparison",
-
-        # AI 프롬프트
         "prompt_lang":      "Please respond in English.",
-
-        # Impact 번역
         "impact_map": {
             "T1 대조도":         "T1 Contrast",
             "T2 대조도":         "T2 Contrast",
@@ -221,61 +202,33 @@ TRANSLATIONS = {
             "조직억제":          "Tissue Suppression",
             "환자 안전":         "Patient Safety",
         },
+        "label_map": {
+            "🧠 Brain - T1 (뇌 구조)":           "🧠 Brain - T1 (Brain Structure)",
+            "🧠 Brain - T2 (부종/병변)":          "🧠 Brain - T2 (Edema/Lesion)",
+            "🧠 Brain - FLAIR (백질 병변)":       "🧠 Brain - FLAIR (White Matter)",
+            "🧠 Brain - DWI (급성 뇌경색)":       "🧠 Brain - DWI (Acute Infarction)",
+            "🧠 Brain - GRE/SWI (출혈/철분)":     "🧠 Brain - GRE/SWI (Hemorrhage/Iron)",
+            "🧠 Brain - MRA (뇌혈관)":            "🧠 Brain - MRA (Brain Vessels)",
+            "🔧 C-Spine - T1 (경추 구조)":        "🔧 C-Spine - T1 (Structure)",
+            "🔧 C-Spine - T2 (경추 디스크/병변)": "🔧 C-Spine - T2 (Disc/Lesion)",
+            "🔧 C-Spine - STIR (경추 부종)":      "🔧 C-Spine - STIR (Edema)",
+            "🦴 L-Spine - T1 (요추 구조)":        "🦴 L-Spine - T1 (Structure)",
+            "🦴 L-Spine - T2 (요추 디스크/병변)": "🦴 L-Spine - T2 (Disc/Lesion)",
+            "🦴 L-Spine - STIR (요추 부종)":      "🦴 L-Spine - STIR (Edema)",
+            "🦵 Knee - T1 (연골/뼈)":             "🦵 Knee - T1 (Cartilage/Bone)",
+            "🦵 Knee - T2 (반월판/인대)":         "🦵 Knee - T2 (Meniscus/Ligament)",
+            "🦵 Knee - PD (연골/반월판)":         "🦵 Knee - PD (Cartilage/Meniscus)",
+            "🦵 Knee - STIR (부종/염증)":         "🦵 Knee - STIR (Edema/Inflammation)",
+            "🫀 Shoulder - T1 (회전근개)":        "🫀 Shoulder - T1 (Rotator Cuff)",
+            "🫀 Shoulder - T2 (힘줄/점액낭)":     "🫀 Shoulder - T2 (Tendon/Bursa)",
+            "🫀 Shoulder - PD (회전근개)":        "🫀 Shoulder - PD (Rotator Cuff)",
+            "🫁 Abdomen - T1 (간/췌장)":          "🫁 Abdomen - T1 (Liver/Pancreas)",
+            "🫁 Abdomen - T2 (담도/췌관)":        "🫁 Abdomen - T2 (Bile Duct)",
+            "🫁 Abdomen - DWI (종양 감별)":       "🫁 Abdomen - DWI (Tumor Detection)",
+        },
     },
 }
-# translations.py ko/en 각각에 추가
 
-# ko label_map
-"label_map": {
-    "🧠 Brain - T1 (뇌 구조)":          "🧠 Brain - T1 (뇌 구조)",
-    "🧠 Brain - T2 (부종/병변)":         "🧠 Brain - T2 (부종/병변)",
-    "🧠 Brain - FLAIR (백질 병변)":      "🧠 Brain - FLAIR (백질 병변)",
-    "🧠 Brain - DWI (급성 뇌경색)":      "🧠 Brain - DWI (급성 뇌경색)",
-    "🧠 Brain - GRE/SWI (출혈/철분)":    "🧠 Brain - GRE/SWI (출혈/철분)",
-    "🧠 Brain - MRA (뇌혈관)":           "🧠 Brain - MRA (뇌혈관)",
-    "🔧 C-Spine - T1 (경추 구조)":       "🔧 C-Spine - T1 (경추 구조)",
-    "🔧 C-Spine - T2 (경추 디스크/병변)":"🔧 C-Spine - T2 (경추 디스크/병변)",
-    "🔧 C-Spine - STIR (경추 부종)":     "🔧 C-Spine - STIR (경추 부종)",
-    "🦴 L-Spine - T1 (요추 구조)":       "🦴 L-Spine - T1 (요추 구조)",
-    "🦴 L-Spine - T2 (요추 디스크/병변)":"🦴 L-Spine - T2 (요추 디스크/병변)",
-    "🦴 L-Spine - STIR (요추 부종)":     "🦴 L-Spine - STIR (요추 부종)",
-    "🦵 Knee - T1 (연골/뼈)":            "🦵 Knee - T1 (연골/뼈)",
-    "🦵 Knee - T2 (반월판/인대)":        "🦵 Knee - T2 (반월판/인대)",
-    "🦵 Knee - PD (연골/반월판)":        "🦵 Knee - PD (연골/반월판)",
-    "🦵 Knee - STIR (부종/염증)":        "🦵 Knee - STIR (부종/염증)",
-    "🫀 Shoulder - T1 (회전근개)":       "🫀 Shoulder - T1 (회전근개)",
-    "🫀 Shoulder - T2 (힘줄/점액낭)":    "🫀 Shoulder - T2 (힘줄/점액낭)",
-    "🫀 Shoulder - PD (회전근개)":       "🫀 Shoulder - PD (회전근개)",
-    "🫁 Abdomen - T1 (간/췌장)":         "🫁 Abdomen - T1 (간/췌장)",
-    "🫁 Abdomen - T2 (담도/췌관)":       "🫁 Abdomen - T2 (담도/췌관)",
-    "🫁 Abdomen - DWI (종양 감별)":      "🫁 Abdomen - DWI (종양 감별)",
-},
-
-# en label_map
-"label_map": {
-    "🧠 Brain - T1 (뇌 구조)":          "🧠 Brain - T1 (Brain Structure)",
-    "🧠 Brain - T2 (부종/병변)":         "🧠 Brain - T2 (Edema/Lesion)",
-    "🧠 Brain - FLAIR (백질 병변)":      "🧠 Brain - FLAIR (White Matter)",
-    "🧠 Brain - DWI (급성 뇌경색)":      "🧠 Brain - DWI (Acute Infarction)",
-    "🧠 Brain - GRE/SWI (출혈/철분)":    "🧠 Brain - GRE/SWI (Hemorrhage/Iron)",
-    "🧠 Brain - MRA (뇌혈관)":           "🧠 Brain - MRA (Brain Vessels)",
-    "🔧 C-Spine - T1 (경추 구조)":       "🔧 C-Spine - T1 (Structure)",
-    "🔧 C-Spine - T2 (경추 디스크/병변)":"🔧 C-Spine - T2 (Disc/Lesion)",
-    "🔧 C-Spine - STIR (경추 부종)":     "🔧 C-Spine - STIR (Edema)",
-    "🦴 L-Spine - T1 (요추 구조)":       "🦴 L-Spine - T1 (Structure)",
-    "🦴 L-Spine - T2 (요추 디스크/병변)":"🦴 L-Spine - T2 (Disc/Lesion)",
-    "🦴 L-Spine - STIR (요추 부종)":     "🦴 L-Spine - STIR (Edema)",
-    "🦵 Knee - T1 (연골/뼈)":            "🦵 Knee - T1 (Cartilage/Bone)",
-    "🦵 Knee - T2 (반월판/인대)":        "🦵 Knee - T2 (Meniscus/Ligament)",
-    "🦵 Knee - PD (연골/반월판)":        "🦵 Knee - PD (Cartilage/Meniscus)",
-    "🦵 Knee - STIR (부종/염증)":        "🦵 Knee - STIR (Edema/Inflammation)",
-    "🫀 Shoulder - T1 (회전근개)":       "🫀 Shoulder - T1 (Rotator Cuff)",
-    "🫀 Shoulder - T2 (힘줄/점액낭)":    "🫀 Shoulder - T2 (Tendon/Bursa)",
-    "🫀 Shoulder - PD (회전근개)":       "🫀 Shoulder - PD (Rotator Cuff)",
-    "🫁 Abdomen - T1 (간/췌장)":         "🫁 Abdomen - T1 (Liver/Pancreas)",
-    "🫁 Abdomen - T2 (담도/췌관)":       "🫁 Abdomen - T2 (Bile Duct)",
-    "🫁 Abdomen - DWI (종양 감별)":      "🫁 Abdomen - DWI (Tumor Detection)",
-},
 
 def get_text(lang, key):
     return TRANSLATIONS.get(lang, TRANSLATIONS["ko"]).get(key, key)
