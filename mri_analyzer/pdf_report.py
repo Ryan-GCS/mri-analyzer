@@ -21,14 +21,12 @@ def register_fonts():
         "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "./fonts/NanumGothic.ttf",
-        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "./fonts/NanumGothic.ttf",
     ]
     for path in font_paths:
         if os.path.exists(path):
             try:
                 pdfmetrics.registerFont(TTFont("Korean", path))
+                pdfmetrics.registerFont(TTFont("Korean-Bold", path))
                 return "Korean"
             except:
                 continue
@@ -203,14 +201,14 @@ def build_info_table(params, lang, font_name):
 
     t = Table(rows, colWidths=[55 * mm, 115 * mm])
     t.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (0, -1), COLOR_LIGHT_BLUE),
-        ("BACKGROUND",    (1, 0), (1, -1), COLOR_WHITE),
-        ("ROWBACKGROUNDS",(0, 0), (-1, -1), [COLOR_LIGHT_BLUE, COLOR_WHITE]),
-        ("GRID",          (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
-        ("TOPPADDING",    (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("BACKGROUND",     (0, 0), (0, -1), COLOR_LIGHT_BLUE),
+        ("BACKGROUND",     (1, 0), (1, -1), COLOR_WHITE),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [COLOR_LIGHT_BLUE, COLOR_WHITE]),
+        ("GRID",           (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
+        ("TOPPADDING",     (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING",  (0, 0), (-1, -1), 4),
+        ("LEFTPADDING",    (0, 0), (-1, -1), 6),
+        ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
     ]))
     return t
 
@@ -219,16 +217,32 @@ def build_comparison_table(df, font_name):
     if df is None or df.empty:
         return None
 
+    col_count = len(df.columns)
+    if col_count == 8:
+        col_widths = [22, 18, 16, 18, 16, 14, 20, 46]
+    else:
+        col_w = 170 / col_count
+        col_widths = [col_w] * col_count
+
     def hdr(txt):
         return Paragraph(f"<b>{txt}</b>", ParagraphStyle(
             name="th", fontName=font_name, fontSize=8,
             textColor=COLOR_WHITE, leading=11,
+            alignment=TA_CENTER,
         ))
 
-    def cell(txt, color=COLOR_BLACK):
+    def cell_center(txt, color=COLOR_BLACK):
         return Paragraph(str(txt), ParagraphStyle(
-            name="td", fontName=font_name, fontSize=8,
+            name="td_c", fontName=font_name, fontSize=8,
             textColor=color, leading=11,
+            alignment=TA_CENTER,
+        ))
+
+    def cell_left(txt, color=COLOR_BLACK):
+        return Paragraph(str(txt), ParagraphStyle(
+            name="td_l", fontName=font_name, fontSize=8,
+            textColor=color, leading=11,
+            alignment=TA_LEFT,
         ))
 
     headers = [hdr(c) for c in df.columns]
@@ -245,22 +259,43 @@ def build_comparison_table(df, font_name):
         else:
             sc = COLOR_BLACK
 
-        rows.append([
-            cell(str(v), sc if i == len(df.columns) - 1 else COLOR_BLACK)
-            for i, v in enumerate(row)
-        ])
+        row_cells = []
+        for i, v in enumerate(row):
+            txt = str(v)
+            if i == len(df.columns) - 1:
+                row_cells.append(cell_left(txt, sc))
+            elif i in [1, 2, 3, 4]:
+                row_cells.append(cell_center(txt))
+            else:
+                row_cells.append(cell_left(txt))
+        rows.append(row_cells)
 
-    col_w = 170 / len(df.columns)
-    t = Table(rows, colWidths=[col_w * mm] * len(df.columns))
-    t.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, 0), COLOR_HEADER),
-        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [COLOR_WHITE, COLOR_LIGHT_GRAY]),
-        ("GRID",          (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
-        ("TOPPADDING",    (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 4),
+    t = Table(rows, colWidths=[w * mm for w in col_widths])
+
+    style_cmds = [
+        ("BACKGROUND",    (0, 0), (-1, 0),  COLOR_HEADER),
+        ("LINEBELOW",     (0, 0), (-1, 0),  1.5, COLOR_SUBHEADER),
+        ("TOPPADDING",    (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-    ]))
+        ("GRID",          (0, 0), (-1, -1), 0.3, colors.HexColor("#BDC3C7")),
+    ]
+
+    for idx, (_, row) in enumerate(df.iterrows()):
+        status = str(row.get("상태", row.get("Status", "")))
+        if "✅" in status:
+            bg = colors.HexColor("#EAFAF1")
+        elif "⚠️" in status:
+            bg = colors.HexColor("#FEFDE7")
+        elif "❌" in status:
+            bg = colors.HexColor("#FDEDEC")
+        else:
+            bg = COLOR_WHITE if idx % 2 == 0 else COLOR_LIGHT_GRAY
+        style_cmds.append(("BACKGROUND", (0, idx + 1), (-1, idx + 1), bg))
+
+    t.setStyle(TableStyle(style_cmds))
     return t
 def generate_pdf_report(params, user_baseline, df, radar_fig, gauge_figs,
                         ai_result, selected_seq, lang="ko"):
@@ -312,7 +347,7 @@ def generate_pdf_report(params, user_baseline, df, radar_fig, gauge_figs,
             "⚠️ AI analysis is powered by Groq LLaMA and does not replace medical diagnosis.",
         ]
 
-    # ── 헤더 ─────────────────────────────────────────────────
+    # ── 헤더 ──────────────────────────────────────────────────
     header_data = [[
         Paragraph(title_txt, styles["ReportTitle"]),
         Paragraph(date_txt,  styles["DateRight"]),
