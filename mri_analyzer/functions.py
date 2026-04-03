@@ -105,6 +105,51 @@ def extract_manufacturer_params(ds, mfr):
         return philips_params
     else:
         return common_advanced
+functions.py 수정 위치
+1. translate_params 함수 추가 위치
+**109번째 줄 (extract_dicom_params 함수 바로 위)**에 추가!
+
+python
+복사
+# 108번 줄 (빈 줄)
+# ↓ 여기에 추가!
+
+def translate_params(params, lang):
+    if lang == "ko":
+        return params
+
+    key_map = {
+        # 섹션명
+        "기본 정보":       "Basic Info",
+        "시퀀스 파라미터": "Sequence Params",
+        "공간 해상도":     "Spatial Resolution",
+        "DWI 파라미터":    "DWI Params",
+        "제조사 파라미터": "Manufacturer Params",
+        # 기본 정보 키
+        "파일명":          "File Name",
+        "제조사":          "Manufacturer",
+        "감지된 제조사":   "Detected Manufacturer",
+        "시퀀스명":        "Sequence Name",
+        "프로토콜명":      "Protocol Name",
+        "촬영부위":        "Body Part",
+        "자장강도(T)":     "Field Strength(T)",
+        "수신코일":        "Receive Coil",
+        "시리즈설명":      "Series Description",
+        # 공간 해상도 키
+        "획득방식(2D/3D)": "Acquisition(2D/3D)",
+    }
+
+    translated = {}
+    for section_ko, section_data in params.items():
+        section_en = key_map.get(section_ko, section_ko)
+        if isinstance(section_data, dict):
+            translated[section_en] = {
+                key_map.get(k, k): v
+                for k, v in section_data.items()
+            }
+        else:
+            translated[section_en] = section_data
+    return translated
 
 
 def extract_dicom_params(file_bytes, filename=""):
