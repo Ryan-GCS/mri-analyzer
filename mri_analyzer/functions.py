@@ -105,15 +105,7 @@ def extract_manufacturer_params(ds, mfr):
         return philips_params
     else:
         return common_advanced
-functions.py 수정 위치
-1. translate_params 함수 추가 위치
-**109번째 줄 (extract_dicom_params 함수 바로 위)**에 추가!
-
-python
-복사
-# 108번 줄 (빈 줄)
-# ↓ 여기에 추가!
-
+        
 def translate_params(params, lang):
     if lang == "ko":
         return params
@@ -150,7 +142,6 @@ def translate_params(params, lang):
         else:
             translated[section_en] = section_data
     return translated
-
 
 def extract_dicom_params(file_bytes, filename=""):
     ds = pydicom.dcmread(BytesIO(file_bytes), force=True)
