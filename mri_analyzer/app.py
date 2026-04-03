@@ -12,18 +12,30 @@ from functions import (
 
 st.set_page_config(page_title="MRI DICOM AI 분석기", page_icon="🧠", layout="wide")
 st.title("🧠 MRI DICOM AI 파라미터 분석기")
+st.warning("""
+⚠️ 본 서비스는 MRI 파라미터 분석 보조 도구입니다.
+AI 분석 결과는 참고용이며 최종 판단은 반드시 전문의가 해야 합니다.
+환자 개인정보가 포함된 DICOM 파일 업로드를 금지합니다.
+""")
 st.markdown("---")
 
 mfr_keys = list(MANUFACTURER_PARAMS.keys())
 
+# API Key secrets에서 자동 로드
+try:
+    api_key = st.secrets["groq"]["api_key"]
+except:
+    api_key = ""
+
 with st.sidebar:
     st.header("⚙️ 설정")
-    api_key = st.text_input(
-        "Groq API Key",
-        type="password",
-        help="https://console.groq.com 에서 무료 발급"
-    )
-    st.caption("🆓 Groq API는 완전 무료입니다")
+
+    # API Key 상태 표시만 (입력창 없음)
+    if api_key:
+        st.success("✅ API 연결됨")
+    else:
+        st.error("❌ API Key 없음")
+
     st.markdown("---")
 
     st.header("🎯 시퀀스 선택")
@@ -75,16 +87,6 @@ with st.sidebar:
                     "impact":  values["impact"]
                 }
 
-if not api_key:
-    st.warning("⚠️ 왼쪽 사이드바에 Groq API Key를 입력해주세요")
-    st.markdown("""
-    ### Groq API Key 발급 방법
-    1. [https://console.groq.com](https://console.groq.com) 접속
-    2. 구글 계정으로 가입
-    3. API Keys 메뉴에서 Create API Key 클릭
-    4. 발급된 키 복사 후 위 입력창에 붙여넣기
-    """)
-
 st.header("📁 DICOM 파일 업로드")
 st.caption("✅ .dcm 파일 또는 .zip 압축파일 모두 지원")
 
@@ -131,36 +133,16 @@ if uploaded_file:
     # 파라미터 탭
     st.header("📊 추출된 파라미터")
 
-    if mfr == "GE":
+    if mfr in ["GE", "SIEMENS", "PHILIPS"]:
+        mfr_label = {"GE": "GE전용", "SIEMENS": "Siemens전용", "PHILIPS": "Philips전용"}
         t1, t2, t3, t4, t5 = st.tabs([
-            "기본정보", "시퀀스파라미터", "공간해상도", "DWI", "GE전용"
+            "기본정보", "시퀀스파라미터", "공간해상도", "DWI", mfr_label[mfr]
         ])
         with t1: st.json(params["기본 정보"])
         with t2: st.json(params["시퀀스 파라미터"])
         with t3: st.json(params["공간 해상도"])
         with t4: st.json(params["DWI 파라미터"])
         with t5: st.json(params["제조사 파라미터"])
-
-    elif mfr == "SIEMENS":
-        t1, t2, t3, t4, t5 = st.tabs([
-            "기본정보", "시퀀스파라미터", "공간해상도", "DWI", "Siemens전용"
-        ])
-        with t1: st.json(params["기본 정보"])
-        with t2: st.json(params["시퀀스 파라미터"])
-        with t3: st.json(params["공간 해상도"])
-        with t4: st.json(params["DWI 파라미터"])
-        with t5: st.json(params["제조사 파라미터"])
-
-    elif mfr == "PHILIPS":
-        t1, t2, t3, t4, t5 = st.tabs([
-            "기본정보", "시퀀스파라미터", "공간해상도", "DWI", "Philips전용"
-        ])
-        with t1: st.json(params["기본 정보"])
-        with t2: st.json(params["시퀀스 파라미터"])
-        with t3: st.json(params["공간 해상도"])
-        with t4: st.json(params["DWI 파라미터"])
-        with t5: st.json(params["제조사 파라미터"])
-
     else:
         t1, t2, t3, t4 = st.tabs([
             "기본정보", "시퀀스파라미터", "공간해상도", "DWI"
@@ -197,7 +179,7 @@ if uploaded_file:
     # AI 분석
     st.header("🤖 AI 분석 결과")
     if not api_key:
-        st.warning("⚠️ API Key를 입력해야 AI 분석이 가능합니다")
+        st.error("❌ API Key가 설정되지 않았습니다. 관리자에게 문의하세요.")
     else:
         if st.button("🔍 AI 분석 시작", type="primary"):
             with st.spinner("AI 분석 중... (10~20초 소요)"):
