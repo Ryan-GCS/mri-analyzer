@@ -1,5 +1,5 @@
 import streamlit as st
-from baseline import SEQUENCE_BASELINES, LABEL_EN_MAP
+from baseline import SEQUENCE_BASELINES, LABEL_EN_MAP, IMPACT_EN_MAP
 from baseline_common import MANUFACTURER_PARAMS
 from translations import get_text
 from functions import (
@@ -35,8 +35,7 @@ def translate_label(label, lang):
 def translate_impact(impact, lang):
     if lang == "ko":
         return impact
-    impact_map = get_text(lang, "impact_map")
-    return impact_map.get(impact, impact)
+    return IMPACT_EN_MAP.get(impact, impact)
 
 with st.sidebar:
     lang = st.radio(
