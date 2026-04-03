@@ -47,6 +47,7 @@ TRANSLATIONS = {
         "pdf_download":     "📄 PDF 리포트 다운로드",
         "prompt_lang":      "반드시 한국어로 답변해주세요.",
         "reference_header": "📚 파라미터 기준값 출처",
+        "radar_title": "파라미터 적합도 레이더 차트",
         "reference_body":   """
 본 앱의 MRI 시퀀스별 파라미터 기준값은 아래 국제 가이드라인 및 문헌을 바탕으로 설정되었습니다.
 
@@ -114,6 +115,7 @@ TRANSLATIONS = {
         "pdf_download":     "📄 Download PDF Report",
         "prompt_lang":      "Please respond in English.",
         "reference_header": "📚 Parameter Reference Sources",
+        "radar_title": "Parameter Fitness Radar Chart",
         "reference_body":   """
 The MRI sequence parameter baselines in this app are based on the following international guidelines and literature.
 
