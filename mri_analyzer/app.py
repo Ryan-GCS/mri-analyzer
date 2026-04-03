@@ -113,10 +113,7 @@ with st.sidebar:
                     "impact":  values["impact"],
                 }
 
-    st.markdown("---")
-    with st.expander(T("reference_header")):
-        st.markdown(T("reference_body"))
-T = lambda key: get_text(lang, key)
+ T = lambda key: get_text(lang, key)
 
 st.title(T("app_title"))
 st.warning(T("app_warning"))
