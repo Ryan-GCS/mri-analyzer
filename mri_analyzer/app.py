@@ -24,6 +24,8 @@ mfr_keys = list(MANUFACTURER_PARAMS.keys())
 
 if "lang" not in st.session_state:
     st.session_state.lang = "ko"
+if "mode" not in st.session_state:
+    st.session_state.mode = "single"
 
 try:
     api_key = st.secrets["groq"]["api_key"]
@@ -50,6 +52,8 @@ def get_section_key(ko_key, lang):
     }
     return section_map.get(ko_key, {}).get(lang, ko_key)
 
+
+# ── 사이드바 ───────────────────────────────────────────────
 with st.sidebar:
     lang = st.radio(
         "🌐 언어 / Language",
@@ -60,6 +64,21 @@ with st.sidebar:
     )
 
     T = lambda key: get_text(lang, key)
+
+    st.markdown("---")
+
+    # ── 모드 선택 ──────────────────────────────────────────
+    st.header("🔀 분석 모드" if lang == "ko" else "🔀 Analysis Mode")
+    mode = st.radio(
+        "모드 선택" if lang == "ko" else "Select Mode",
+        options=["single", "compare"],
+        format_func=lambda x: (
+            "🔬 단일 영상 분석" if x == "single" else "⚖️ 두 영상 비교"
+        ) if lang == "ko" else (
+            "🔬 Single Analysis" if x == "single" else "⚖️ Compare Two"
+        ),
+        key="mode"
+    )
 
     st.markdown("---")
     st.header(T("seq_select"))
@@ -114,35 +133,29 @@ with st.sidebar:
                     "unit":    values["unit"],
                     "impact":  values["impact"],
                 }
-T = lambda key: get_text(lang, key)
 
-st.title(T("app_title"))
-st.warning(T("app_warning"))
-with st.expander(T("reference_header")):
-    st.markdown(T("reference_body"))
-st.markdown("---")
 
-st.header(T("upload_header"))
-st.caption(T("upload_caption"))
+# ── 공통 함수 ──────────────────────────────────────────────
+def load_dicom(uploaded_file, label=""):
+    if uploaded_file is None:
+        return None, None, None
 
-uploaded_file = st.file_uploader(
-    T("upload_label"),
-    type=None
-)
-
-if uploaded_file:
     if uploaded_file.name.endswith(".zip"):
         with st.spinner(T("zip_spinner")):
             dcm_files = extract_dcm_from_zip(uploaded_file)
             if not dcm_files:
                 st.error(T("zip_error"))
-                st.stop()
+                return None, None, None
             st.success(T("zip_success").format(len(dcm_files)))
             file_names    = [f["name"] for f in dcm_files]
-            selected_name = st.selectbox(T("zip_select"), file_names)
-            chosen        = next(f for f in dcm_files if f["name"] == selected_name)
-            file_bytes    = chosen["bytes"]
-            filename      = chosen["name"]
+            selected_name = st.selectbox(
+                T("zip_select"),
+                file_names,
+                key=f"zip_select_{label}"
+            )
+            chosen     = next(f for f in dcm_files if f["name"] == selected_name)
+            file_bytes = chosen["bytes"]
+            filename   = chosen["name"]
     else:
         file_bytes = uploaded_file.read()
         filename   = uploaded_file.name
@@ -150,16 +163,14 @@ if uploaded_file:
     with st.spinner(T("dcm_spinner")):
         try:
             params, ds = extract_dicom_params(file_bytes, filename)
+            return params, ds, filename
         except Exception as e:
             st.error(T("dcm_error").format(e))
-            st.stop()
+            return None, None, None
 
-    # 번역된 표시용 params
-    params_display = translate_params(params, lang)
 
-    # 제조사 감지는 원본 params 사용
+def show_mfr_info(params):
     mfr = params["기본 정보"]["감지된 제조사"]
-
     if mfr == "GE":
         st.info(T("mfr_ge"))
     elif mfr == "SIEMENS":
@@ -168,106 +179,329 @@ if uploaded_file:
         st.info(T("mfr_philips"))
     else:
         st.warning(T("mfr_unknown"))
+    return mfr
 
-    st.header(T("params_header"))
 
-    if mfr == "GE":
+def show_params_tabs(params, mfr, lang):
+    params_display = translate_params(params, lang)
+    if mfr in ["GE", "SIEMENS", "PHILIPS"]:
+        tab_mfr = {
+            "GE":      T("tab_ge"),
+            "SIEMENS": T("tab_siemens"),
+            "PHILIPS": T("tab_philips"),
+        }[mfr]
         t1, t2, t3, t4, t5 = st.tabs([
-            T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi"), T("tab_ge")
+            T("tab_basic"), T("tab_seq"),
+            T("tab_spatial"), T("tab_dwi"), tab_mfr
         ])
         with t1: st.json(params_display[get_section_key("기본 정보",       lang)])
         with t2: st.json(params_display[get_section_key("시퀀스 파라미터", lang)])
         with t3: st.json(params_display[get_section_key("공간 해상도",     lang)])
         with t4: st.json(params_display[get_section_key("DWI 파라미터",    lang)])
         with t5: st.json(params_display[get_section_key("제조사 파라미터", lang)])
-
-    elif mfr == "SIEMENS":
-        t1, t2, t3, t4, t5 = st.tabs([
-            T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi"), T("tab_siemens")
-        ])
-        with t1: st.json(params_display[get_section_key("기본 정보",       lang)])
-        with t2: st.json(params_display[get_section_key("시퀀스 파라미터", lang)])
-        with t3: st.json(params_display[get_section_key("공간 해상도",     lang)])
-        with t4: st.json(params_display[get_section_key("DWI 파라미터",    lang)])
-        with t5: st.json(params_display[get_section_key("제조사 파라미터", lang)])
-
-    elif mfr == "PHILIPS":
-        t1, t2, t3, t4, t5 = st.tabs([
-            T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi"), T("tab_philips")
-        ])
-        with t1: st.json(params_display[get_section_key("기본 정보",       lang)])
-        with t2: st.json(params_display[get_section_key("시퀀스 파라미터", lang)])
-        with t3: st.json(params_display[get_section_key("공간 해상도",     lang)])
-        with t4: st.json(params_display[get_section_key("DWI 파라미터",    lang)])
-        with t5: st.json(params_display[get_section_key("제조사 파라미터", lang)])
-
     else:
         t1, t2, t3, t4 = st.tabs([
-            T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi")
+            T("tab_basic"), T("tab_seq"),
+            T("tab_spatial"), T("tab_dwi")
         ])
         with t1: st.json(params_display[get_section_key("기본 정보",       lang)])
         with t2: st.json(params_display[get_section_key("시퀀스 파라미터", lang)])
         with t3: st.json(params_display[get_section_key("공간 해상도",     lang)])
         with t4: st.json(params_display[get_section_key("DWI 파라미터",    lang)])
+T = lambda key: get_text(lang, key)
 
-    st.header(T("compare_header"))
-    df = create_comparison_table(params, user_baseline, lang)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+st.title(T("app_title"))
+st.warning(T("app_warning"))
+with st.expander(T("reference_header")):
+    st.markdown(T("reference_body"))
+st.markdown("---")
 
-    st.header(T("radar_header"))
-    radar = create_radar_chart(params, user_baseline, lang)
-    if radar:
-        st.plotly_chart(radar, use_container_width=True)
+# ════════════════════════════════════════════════════════════
+# 🔬 단일 영상 분석 모드
+# ════════════════════════════════════════════════════════════
+if mode == "single":
+    st.header(T("upload_header"))
+    st.caption(T("upload_caption"))
+
+    uploaded_file = st.file_uploader(T("upload_label"), type=None, key="single_upload")
+
+    if uploaded_file:
+        params, ds, filename = load_dicom(uploaded_file, "A")
+        if params:
+            mfr = show_mfr_info(params)
+            st.header(T("params_header"))
+            show_params_tabs(params, mfr, lang)
+
+            st.header(T("compare_header"))
+            df = create_comparison_table(params, user_baseline, lang)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+            st.header(T("radar_header"))
+            radar = create_radar_chart(params, user_baseline, lang)
+            if radar:
+                st.plotly_chart(radar, use_container_width=True)
+            else:
+                st.info(T("radar_empty"))
+
+            st.header(T("gauge_header"))
+            gauges = create_gauge_charts(params, user_baseline)
+            if gauges:
+                cols = st.columns(3)
+                for i, (name, fig) in enumerate(gauges):
+                    with cols[i % 3]:
+                        st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info(T("gauge_empty"))
+
+            st.header(T("ai_header"))
+            if not api_key:
+                st.error(T("ai_no_key"))
+            else:
+                if st.button(T("ai_button"), type="primary"):
+                    with st.spinner(T("ai_spinner")):
+                        try:
+                            result = analyze_with_openai(
+                                params, api_key, user_baseline, selected_seq, lang
+                            )
+                            st.markdown(result)
+                            st.download_button(
+                                label     = T("download_button"),
+                                data      = result,
+                                file_name = "mri_analysis_result.txt",
+                                mime      = "text/plain"
+                            )
+                            pdf_buffer = generate_pdf_report(
+                                params        = params,
+                                user_baseline = user_baseline,
+                                df            = df,
+                                radar_fig     = radar,
+                                gauge_figs    = gauges if gauges else [],
+                                ai_result     = result,
+                                selected_seq  = selected_seq,
+                                lang          = lang,
+                            )
+                            st.download_button(
+                                label     = T("pdf_download"),
+                                data      = pdf_buffer,
+                                file_name = f"MRI_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                                mime      = "application/pdf",
+                            )
+                        except Exception as e:
+                            st.error(T("ai_error").format(e))
+
+
+# ════════════════════════════════════════════════════════════
+# ⚖️ 두 영상 비교 모드
+# ════════════════════════════════════════════════════════════
+elif mode == "compare":
+    if lang == "ko":
+        st.header("⚖️ 두 영상 비교 분석")
+        label_a  = "📁 영상 A 업로드"
+        label_b  = "📁 영상 B 업로드"
+        name_a   = "영상 A"
+        name_b   = "영상 B"
+        diff_hdr = "📊 파라미터 비교표"
+        diff_cap = "차이값 : 양수(+) = B가 높음 / 음수(-) = B가 낮음"
+        radar_hdr= "🕸️ 레이더 차트 비교"
+        ai_hdr   = "🤖 AI 비교 분석"
+        ai_btn   = "🤖 AI 비교 분석 시작"
     else:
-        st.info(T("radar_empty"))
+        st.header("⚖️ Compare Two MRI Images")
+        label_a  = "📁 Upload Image A"
+        label_b  = "📁 Upload Image B"
+        name_a   = "Image A"
+        name_b   = "Image B"
+        diff_hdr = "📊 Parameter Comparison Table"
+        diff_cap = "Diff : positive(+) = B higher / negative(-) = B lower"
+        radar_hdr= "🕸️ Radar Chart Comparison"
+        ai_hdr   = "🤖 AI Comparison Analysis"
+        ai_btn   = "🤖 Start AI Comparison"
 
-    st.header(T("gauge_header"))
-    gauges = create_gauge_charts(params, user_baseline)
-    if gauges:
-        cols = st.columns(3)
-        for i, (name, fig) in enumerate(gauges):
-            with cols[i % 3]:
-                st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info(T("gauge_empty"))
+    col_a, col_b = st.columns(2)
 
-    st.header(T("ai_header"))
-    if not api_key:
-        st.error(T("ai_no_key"))
-    else:
-        if st.button(T("ai_button"), type="primary"):
-            with st.spinner(T("ai_spinner")):
-                try:
-                    result = analyze_with_openai(
-                        params, api_key, user_baseline, selected_seq, lang
-                    )
-                    st.markdown(result)
+    with col_a:
+        st.subheader(name_a)
+        upload_a = st.file_uploader(label_a, type=None, key="compare_a")
 
-                    # 텍스트 다운로드
-                    st.download_button(
-                        label     = T("download_button"),
-                        data      = result,
-                        file_name = "mri_analysis_result.txt",
-                        mime      = "text/plain"
-                    )
+    with col_b:
+        st.subheader(name_b)
+        upload_b = st.file_uploader(label_b, type=None, key="compare_b")
 
-                    # PDF 다운로드
-                    pdf_buffer = generate_pdf_report(
-                        params        = params,
-                        user_baseline = user_baseline,
-                        df            = df,
-                        radar_fig     = radar,
-                        gauge_figs    = gauges if gauges else [],
-                        ai_result     = result,
-                        selected_seq  = selected_seq,
-                        lang          = lang,
-                    )
-                    st.download_button(
-                        label     = T("pdf_download"),
-                        data      = pdf_buffer,
-                        file_name = f"MRI_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                        mime      = "application/pdf",
-                    )
+    if upload_a and upload_b:
+        with col_a:
+            params_a, ds_a, filename_a = load_dicom(upload_a, "A")
+        with col_b:
+            params_b, ds_b, filename_b = load_dicom(upload_b, "B")
 
-                except Exception as e:
-                    st.error(T("ai_error").format(e))
+        if params_a and params_b:
+
+            # ── 제조사 정보 ──────────────────────────────────
+            with col_a:
+                show_mfr_info(params_a)
+            with col_b:
+                show_mfr_info(params_b)
+
+            # ── 파라미터 탭 ──────────────────────────────────
+            st.markdown("---")
+            if lang == "ko":
+                st.subheader("📋 파라미터 상세")
+            else:
+                st.subheader("📋 Parameter Details")
+
+            tab_a, tab_b = st.tabs([
+                f"🔬 {name_a} : {filename_a}",
+                f"🔬 {name_b} : {filename_b}",
+            ])
+            with tab_a:
+                mfr_a = params_a["기본 정보"]["감지된 제조사"]
+                show_params_tabs(params_a, mfr_a, lang)
+            with tab_b:
+                mfr_b = params_b["기본 정보"]["감지된 제조사"]
+                show_params_tabs(params_b, mfr_b, lang)
+
+            # ── 파라미터 비교표 ──────────────────────────────
+            st.markdown("---")
+            st.subheader(diff_hdr)
+            st.caption(diff_cap)
+
+            df_a = create_comparison_table(params_a, user_baseline, lang)
+            df_b = create_comparison_table(params_b, user_baseline, lang)
+
+            import pandas as pd
+
+            if df_a is not None and df_b is not None:
+                param_col = df_a.columns[0]
+                val_col   = df_a.columns[1]
+                status_col= df_a.columns[-2] if len(df_a.columns) > 2 else df_a.columns[-1]
+
+                df_merge = pd.DataFrame()
+                df_merge[param_col]          = df_a[param_col]
+                df_merge[f"{name_a} 값"]     = df_a[val_col]
+                df_merge[f"{name_b} 값"]     = df_b[val_col]
+
+                def calc_diff(a, b):
+                    try:
+                        diff = float(b) - float(a)
+                        if diff > 0:
+                            return f"🔺 +{diff:.2f}"
+                        elif diff < 0:
+                            return f"🔻 {diff:.2f}"
+                        else:
+                            return f"➖ 0"
+                    except:
+                        return "-"
+
+                df_merge["차이 / Diff"] = [
+                    calc_diff(a, b)
+                    for a, b in zip(df_a[val_col], df_b[val_col])
+                ]
+                df_merge[f"{name_a} 상태"] = df_a[df_a.columns[-2]] if len(df_a.columns) > 2 else df_a[df_a.columns[-1]]
+                df_merge[f"{name_b} 상태"] = df_b[df_b.columns[-2]] if len(df_b.columns) > 2 else df_b[df_b.columns[-1]]
+
+                st.dataframe(df_merge, use_container_width=True, hide_index=True)
+
+            # ── 레이더 차트 비교 ─────────────────────────────
+            st.markdown("---")
+            st.subheader(radar_hdr)
+
+            radar_a = create_radar_chart(params_a, user_baseline, lang)
+            radar_b = create_radar_chart(params_b, user_baseline, lang)
+
+            rc1, rc2 = st.columns(2)
+            with rc1:
+                st.caption(f"🔵 {name_a}")
+                if radar_a:
+                    st.plotly_chart(radar_a, use_container_width=True)
+                else:
+                    st.info(T("radar_empty"))
+            with rc2:
+                st.caption(f"🟠 {name_b}")
+                if radar_b:
+                    st.plotly_chart(radar_b, use_container_width=True)
+                else:
+                    st.info(T("radar_empty"))
+
+            # ── 게이지 차트 비교 ─────────────────────────────
+            st.markdown("---")
+            if lang == "ko":
+                st.subheader("🎯 게이지 차트 비교")
+            else:
+                st.subheader("🎯 Gauge Chart Comparison")
+
+            gauges_a = create_gauge_charts(params_a, user_baseline)
+            gauges_b = create_gauge_charts(params_b, user_baseline)
+
+            if gauges_a and gauges_b:
+                for i in range(min(len(gauges_a), len(gauges_b))):
+                    name_ga, fig_ga = gauges_a[i]
+                    name_gb, fig_gb = gauges_b[i]
+                    g1, g2 = st.columns(2)
+                    with g1:
+                        st.plotly_chart(fig_ga, use_container_width=True)
+                    with g2:
+                        st.plotly_chart(fig_gb, use_container_width=True)
+
+            # ── AI 비교 분석 ─────────────────────────────────
+            st.markdown("---")
+            st.subheader(ai_hdr)
+
+            if not api_key:
+                st.error(T("ai_no_key"))
+            else:
+                if st.button(ai_btn, type="primary"):
+                    with st.spinner(T("ai_spinner")):
+                        try:
+                            if lang == "ko":
+                                compare_prompt = f"""
+다음은 두 MRI 영상의 파라미터입니다. 두 영상을 비교 분석해주세요.
+
+[영상 A : {filename_a}]
+시퀀스: {selected_seq}
+파라미터: {params_a.get("시퀀스 파라미터", {})}
+공간해상도: {params_a.get("공간 해상도", {})}
+
+[영상 B : {filename_b}]
+시퀀스: {selected_seq}
+파라미터: {params_b.get("시퀀스 파라미터", {})}
+공간해상도: {params_b.get("공간 해상도", {})}
+
+다음 항목으로 비교 분석해주세요:
+1. 주요 파라미터 차이점
+2. 영상 품질 관점에서의 차이
+3. 어떤 영상이 더 적합한지 (이유 포함)
+4. 개선 권고사항
+"""
+                            else:
+                                compare_prompt = f"""
+Compare the following two MRI image parameters:
+
+[Image A : {filename_a}]
+Sequence: {selected_seq}
+Parameters: {params_a.get("시퀀스 파라미터", {})}
+Spatial: {params_a.get("공간 해상도", {})}
+
+[Image B : {filename_b}]
+Sequence: {selected_seq}
+Parameters: {params_b.get("시퀀스 파라미터", {})}
+Spatial: {params_b.get("공간 해상도", {})}
+
+Please analyze:
+1. Key parameter differences
+2. Image quality differences
+3. Which image is more suitable (with reasons)
+4. Recommendations for improvement
+"""
+                            result = analyze_with_openai(
+                                params_a, api_key,
+                                user_baseline, selected_seq, lang,
+                                custom_prompt=compare_prompt
+                            )
+                            st.markdown(result)
+                            st.download_button(
+                                label     = T("download_button"),
+                                data      = result,
+                                file_name = "mri_compare_result.txt",
+                                mime      = "text/plain"
+                            )
+                        except Exception as e:
+                            st.error(T("ai_error").format(e))
