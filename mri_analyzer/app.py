@@ -29,18 +29,21 @@ if "mode" not in st.session_state:
 
 try:
     api_key = st.secrets["groq"]["api_key"]
-except:
+except Exception:
     api_key = ""
+
 
 def translate_label(label, lang):
     if lang == "ko":
         return label
     return LABEL_EN_MAP.get(label, label)
 
+
 def translate_impact(impact, lang):
     if lang == "ko":
         return impact
     return IMPACT_EN_MAP.get(impact, impact)
+
 
 def get_section_key(ko_key, lang):
     section_map = {
@@ -67,7 +70,6 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ── 모드 선택 ──────────────────────────────────────────
     st.header("🔀 분석 모드" if lang == "ko" else "🔀 Analysis Mode")
     mode = st.radio(
         "모드 선택" if lang == "ko" else "Select Mode",
@@ -102,11 +104,11 @@ with st.sidebar:
     for param_name, values in baseline_params.items():
         if param_name not in mfr_keys:
             impact_label = translate_impact(values["impact"], lang)
-            with st.expander(f"📌 {param_name} | {impact_label}"):
+            with st.expander("📌 " + param_name + " | " + impact_label):
                 c1, c2, c3 = st.columns(3)
-                mn  = c1.number_input(T("min"),     value=float(values["min"]),     key=f"min_{selected_seq}_{param_name}")
-                opt = c2.number_input(T("optimal"), value=float(values["optimal"]), key=f"opt_{selected_seq}_{param_name}")
-                mx  = c3.number_input(T("max"),     value=float(values["max"]),     key=f"max_{selected_seq}_{param_name}")
+                mn  = c1.number_input(T("min"),     value=float(values["min"]),     key="min_"  + selected_seq + "_" + param_name)
+                opt = c2.number_input(T("optimal"), value=float(values["optimal"]), key="opt_"  + selected_seq + "_" + param_name)
+                mx  = c3.number_input(T("max"),     value=float(values["max"]),     key="max_"  + selected_seq + "_" + param_name)
                 user_baseline[param_name] = {
                     "min":     mn,
                     "optimal": opt,
@@ -121,11 +123,11 @@ with st.sidebar:
     for param_name, values in baseline_params.items():
         if param_name in mfr_keys:
             impact_label = translate_impact(values["impact"], lang)
-            with st.expander(f"⚙️ {param_name} | {impact_label}"):
+            with st.expander("⚙️ " + param_name + " | " + impact_label):
                 c1, c2, c3 = st.columns(3)
-                mn  = c1.number_input(T("min"),     value=float(values["min"]),     key=f"min_{selected_seq}_{param_name}")
-                opt = c2.number_input(T("optimal"), value=float(values["optimal"]), key=f"opt_{selected_seq}_{param_name}")
-                mx  = c3.number_input(T("max"),     value=float(values["max"]),     key=f"max_{selected_seq}_{param_name}")
+                mn  = c1.number_input(T("min"),     value=float(values["min"]),     key="min_"  + selected_seq + "_" + param_name)
+                opt = c2.number_input(T("optimal"), value=float(values["optimal"]), key="opt_"  + selected_seq + "_" + param_name)
+                mx  = c3.number_input(T("max"),     value=float(values["max"]),     key="max_"  + selected_seq + "_" + param_name)
                 user_baseline[param_name] = {
                     "min":     mn,
                     "optimal": opt,
@@ -151,7 +153,7 @@ def load_dicom(uploaded_file, label=""):
             selected_name = st.selectbox(
                 T("zip_select"),
                 file_names,
-                key=f"zip_select_{label}"
+                key="zip_select_" + label
             )
             chosen     = next(f for f in dcm_files if f["name"] == selected_name)
             file_bytes = chosen["bytes"]
@@ -182,7 +184,7 @@ def show_mfr_info(params):
     return mfr
 
 
-def show_params_tabs(params, mfr, lang):
+def show_params_tabs(params, mfr, lang, prefix=""):
     params_display = translate_params(params, lang)
     if mfr in ["GE", "SIEMENS", "PHILIPS"]:
         tab_mfr = {
@@ -216,6 +218,7 @@ with st.expander(T("reference_header")):
     st.markdown(T("reference_body"))
 st.markdown("---")
 
+
 # ════════════════════════════════════════════════════════════
 # 🔬 단일 영상 분석 모드
 # ════════════════════════════════════════════════════════════
@@ -229,17 +232,22 @@ if mode == "single":
         params, ds, filename = load_dicom(uploaded_file, "A")
         if params:
             mfr = show_mfr_info(params)
+
             st.header(T("params_header"))
-            show_params_tabs(params, mfr, lang)
+            show_params_tabs(params, mfr, lang, prefix="single")
 
             st.header(T("compare_header"))
             df = create_comparison_table(params, user_baseline, lang)
             st.dataframe(df, use_container_width=True, hide_index=True)
 
             st.header(T("radar_header"))
+            st.caption(
+                "파라미터 적합도 레이더 차트" if lang == "ko"
+                else "Parameter Fitness Radar Chart"
+            )
             radar = create_radar_chart(params, user_baseline, lang)
             if radar:
-                st.plotly_chart(radar, use_container_width=True)
+                st.plotly_chart(radar, use_container_width=True, key="radar_single")
             else:
                 st.info(T("radar_empty"))
 
@@ -249,7 +257,11 @@ if mode == "single":
                 cols = st.columns(3)
                 for i, (name, fig) in enumerate(gauges):
                     with cols[i % 3]:
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(
+                            fig,
+                            use_container_width=True,
+                            key="gauge_single_" + str(i) + "_" + name
+                        )
             else:
                 st.info(T("gauge_empty"))
 
@@ -283,7 +295,7 @@ if mode == "single":
                             st.download_button(
                                 label     = T("pdf_download"),
                                 data      = pdf_buffer,
-                                file_name = f"MRI_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                                file_name = "MRI_Report_" + datetime.now().strftime("%Y%m%d_%H%M") + ".pdf",
                                 mime      = "application/pdf",
                             )
                         except Exception as e:
@@ -303,6 +315,7 @@ elif mode == "compare":
         diff_hdr = "📊 파라미터 비교표"
         diff_cap = "차이값 : 양수(+) = B가 높음 / 음수(-) = B가 낮음"
         radar_hdr= "🕸️ 레이더 차트 비교"
+        gauge_hdr= "🎯 게이지 차트 비교"
         ai_hdr   = "🤖 AI 비교 분석"
         ai_btn   = "🤖 AI 비교 분석 시작"
     else:
@@ -314,6 +327,7 @@ elif mode == "compare":
         diff_hdr = "📊 Parameter Comparison Table"
         diff_cap = "Diff : positive(+) = B higher / negative(-) = B lower"
         radar_hdr= "🕸️ Radar Chart Comparison"
+        gauge_hdr= "🎯 Gauge Chart Comparison"
         ai_hdr   = "🤖 AI Comparison Analysis"
         ai_btn   = "🤖 Start AI Comparison"
 
@@ -337,9 +351,9 @@ elif mode == "compare":
 
             # ── 제조사 정보 ──────────────────────────────────
             with col_a:
-                show_mfr_info(params_a)
+                mfr_a = show_mfr_info(params_a)
             with col_b:
-                show_mfr_info(params_b)
+                mfr_b = show_mfr_info(params_b)
 
             # ── 파라미터 탭 ──────────────────────────────────
             st.markdown("---")
@@ -349,54 +363,49 @@ elif mode == "compare":
                 st.subheader("📋 Parameter Details")
 
             tab_a, tab_b = st.tabs([
-                f"🔬 {name_a} : {filename_a}",
-                f"🔬 {name_b} : {filename_b}",
+                "🔬 " + name_a + " : " + filename_a,
+                "🔬 " + name_b + " : " + filename_b,
             ])
             with tab_a:
-                mfr_a = params_a["기본 정보"]["감지된 제조사"]
-                show_params_tabs(params_a, mfr_a, lang)
+                show_params_tabs(params_a, mfr_a, lang, prefix="cmp_a")
             with tab_b:
-                mfr_b = params_b["기본 정보"]["감지된 제조사"]
-                show_params_tabs(params_b, mfr_b, lang)
+                show_params_tabs(params_b, mfr_b, lang, prefix="cmp_b")
 
             # ── 파라미터 비교표 ──────────────────────────────
             st.markdown("---")
             st.subheader(diff_hdr)
             st.caption(diff_cap)
 
+            import pandas as pd
             df_a = create_comparison_table(params_a, user_baseline, lang)
             df_b = create_comparison_table(params_b, user_baseline, lang)
-
-            import pandas as pd
 
             if df_a is not None and df_b is not None:
                 param_col = df_a.columns[0]
                 val_col   = df_a.columns[1]
-                status_col= df_a.columns[-2] if len(df_a.columns) > 2 else df_a.columns[-1]
-
-                df_merge = pd.DataFrame()
-                df_merge[param_col]          = df_a[param_col]
-                df_merge[f"{name_a} 값"]     = df_a[val_col]
-                df_merge[f"{name_b} 값"]     = df_b[val_col]
 
                 def calc_diff(a, b):
                     try:
                         diff = float(b) - float(a)
                         if diff > 0:
-                            return f"🔺 +{diff:.2f}"
+                            return "🔺 +" + str(round(diff, 2))
                         elif diff < 0:
-                            return f"🔻 {diff:.2f}"
+                            return "🔻 " + str(round(diff, 2))
                         else:
-                            return f"➖ 0"
-                    except:
+                            return "➖ 0"
+                    except Exception:
                         return "-"
 
-                df_merge["차이 / Diff"] = [
+                df_merge = pd.DataFrame()
+                df_merge[param_col]          = df_a[param_col]
+                df_merge[name_a + " 값"]     = df_a[val_col]
+                df_merge[name_b + " 값"]     = df_b[val_col]
+                df_merge["차이 / Diff"]      = [
                     calc_diff(a, b)
                     for a, b in zip(df_a[val_col], df_b[val_col])
                 ]
-                df_merge[f"{name_a} 상태"] = df_a[df_a.columns[-2]] if len(df_a.columns) > 2 else df_a[df_a.columns[-1]]
-                df_merge[f"{name_b} 상태"] = df_b[df_b.columns[-2]] if len(df_b.columns) > 2 else df_b[df_b.columns[-1]]
+                df_merge[name_a + " 상태"]   = df_a[df_a.columns[-2]] if len(df_a.columns) > 2 else df_a[df_a.columns[-1]]
+                df_merge[name_b + " 상태"]   = df_b[df_b.columns[-2]] if len(df_b.columns) > 2 else df_b[df_b.columns[-1]]
 
                 st.dataframe(df_merge, use_container_width=True, hide_index=True)
 
@@ -409,24 +418,29 @@ elif mode == "compare":
 
             rc1, rc2 = st.columns(2)
             with rc1:
-                st.caption(f"🔵 {name_a}")
+                st.caption("🔵 " + name_a)
                 if radar_a:
-                    st.plotly_chart(radar_a, use_container_width=True)
+                    st.plotly_chart(
+                        radar_a,
+                        use_container_width=True,
+                        key="radar_compare_a"
+                    )
                 else:
                     st.info(T("radar_empty"))
             with rc2:
-                st.caption(f"🟠 {name_b}")
+                st.caption("🟠 " + name_b)
                 if radar_b:
-                    st.plotly_chart(radar_b, use_container_width=True)
+                    st.plotly_chart(
+                        radar_b,
+                        use_container_width=True,
+                        key="radar_compare_b"
+                    )
                 else:
                     st.info(T("radar_empty"))
 
             # ── 게이지 차트 비교 ─────────────────────────────
             st.markdown("---")
-            if lang == "ko":
-                st.subheader("🎯 게이지 차트 비교")
-            else:
-                st.subheader("🎯 Gauge Chart Comparison")
+            st.subheader(gauge_hdr)
 
             gauges_a = create_gauge_charts(params_a, user_baseline)
             gauges_b = create_gauge_charts(params_b, user_baseline)
@@ -437,9 +451,22 @@ elif mode == "compare":
                     name_gb, fig_gb = gauges_b[i]
                     g1, g2 = st.columns(2)
                     with g1:
-                        st.plotly_chart(fig_ga, use_container_width=True)
+                        st.plotly_chart(
+                            fig_ga,
+                            use_container_width=True,
+                            key="gauge_a_" + str(i) + "_" + name_ga
+                        )
                     with g2:
-                        st.plotly_chart(fig_gb, use_container_width=True)
+                        st.plotly_chart(
+                            fig_gb,
+                            use_container_width=True,
+                            key="gauge_b_" + str(i) + "_" + name_gb
+                        )
+            else:
+                if lang == "ko":
+                    st.info("게이지 차트를 생성할 수 없습니다.")
+                else:
+                    st.info("Cannot generate gauge charts.")
 
             # ── AI 비교 분석 ─────────────────────────────────
             st.markdown("---")
@@ -452,45 +479,40 @@ elif mode == "compare":
                     with st.spinner(T("ai_spinner")):
                         try:
                             if lang == "ko":
-                                compare_prompt = f"""
-다음은 두 MRI 영상의 파라미터입니다. 두 영상을 비교 분석해주세요.
-
-[영상 A : {filename_a}]
-시퀀스: {selected_seq}
-파라미터: {params_a.get("시퀀스 파라미터", {})}
-공간해상도: {params_a.get("공간 해상도", {})}
-
-[영상 B : {filename_b}]
-시퀀스: {selected_seq}
-파라미터: {params_b.get("시퀀스 파라미터", {})}
-공간해상도: {params_b.get("공간 해상도", {})}
-
-다음 항목으로 비교 분석해주세요:
-1. 주요 파라미터 차이점
-2. 영상 품질 관점에서의 차이
-3. 어떤 영상이 더 적합한지 (이유 포함)
-4. 개선 권고사항
-"""
+                                compare_prompt = (
+                                    "다음은 두 MRI 영상의 파라미터입니다. 두 영상을 비교 분석해주세요.\n\n"
+                                    "[영상 A : " + filename_a + "]\n"
+                                    "시퀀스: " + selected_seq + "\n"
+                                    "파라미터: " + str(params_a.get("시퀀스 파라미터", {})) + "\n"
+                                    "공간해상도: " + str(params_a.get("공간 해상도", {})) + "\n\n"
+                                    "[영상 B : " + filename_b + "]\n"
+                                    "시퀀스: " + selected_seq + "\n"
+                                    "파라미터: " + str(params_b.get("시퀀스 파라미터", {})) + "\n"
+                                    "공간해상도: " + str(params_b.get("공간 해상도", {})) + "\n\n"
+                                    "다음 항목으로 비교 분석해주세요:\n"
+                                    "## 1. 주요 파라미터 차이점\n"
+                                    "## 2. 영상 품질 관점에서의 차이\n"
+                                    "## 3. 어떤 영상이 더 적합한지 (이유 포함)\n"
+                                    "## 4. 개선 권고사항\n"
+                                )
                             else:
-                                compare_prompt = f"""
-Compare the following two MRI image parameters:
+                                compare_prompt = (
+                                    "Compare the following two MRI image parameters:\n\n"
+                                    "[Image A : " + filename_a + "]\n"
+                                    "Sequence: " + selected_seq + "\n"
+                                    "Parameters: " + str(params_a.get("시퀀스 파라미터", {})) + "\n"
+                                    "Spatial: " + str(params_a.get("공간 해상도", {})) + "\n\n"
+                                    "[Image B : " + filename_b + "]\n"
+                                    "Sequence: " + selected_seq + "\n"
+                                    "Parameters: " + str(params_b.get("시퀀스 파라미터", {})) + "\n"
+                                    "Spatial: " + str(params_b.get("공간 해상도", {})) + "\n\n"
+                                    "Please analyze:\n"
+                                    "## 1. Key parameter differences\n"
+                                    "## 2. Image quality differences\n"
+                                    "## 3. Which image is more suitable (with reasons)\n"
+                                    "## 4. Recommendations for improvement\n"
+                                )
 
-[Image A : {filename_a}]
-Sequence: {selected_seq}
-Parameters: {params_a.get("시퀀스 파라미터", {})}
-Spatial: {params_a.get("공간 해상도", {})}
-
-[Image B : {filename_b}]
-Sequence: {selected_seq}
-Parameters: {params_b.get("시퀀스 파라미터", {})}
-Spatial: {params_b.get("공간 해상도", {})}
-
-Please analyze:
-1. Key parameter differences
-2. Image quality differences
-3. Which image is more suitable (with reasons)
-4. Recommendations for improvement
-"""
                             result = analyze_with_openai(
                                 params_a, api_key,
                                 user_baseline, selected_seq, lang,
