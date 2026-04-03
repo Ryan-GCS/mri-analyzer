@@ -1,3 +1,4 @@
+st.write([v["label"] for v in SEQUENCE_BASELINES.values()])
 import streamlit as st
 from baseline import SEQUENCE_BASELINES, LABEL_EN_MAP
 from baseline_common import MANUFACTURER_PARAMS
