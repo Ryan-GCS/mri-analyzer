@@ -1,6 +1,7 @@
 import streamlit as st
 from baseline import SEQUENCE_BASELINES
 from baseline_common import MANUFACTURER_PARAMS
+from translations import get_text
 from functions import (
     extract_dcm_from_zip,
     extract_dicom_params,
@@ -10,132 +11,167 @@ from functions import (
     analyze_with_openai,
 )
 
-st.set_page_config(page_title="MRI DICOM AI 분석기", page_icon="🧠", layout="wide")
-st.title("🧠 MRI DICOM AI 파라미터 분석기")
-st.warning("""
-⚠️ 본 서비스는 MRI 파라미터 분석 보조 도구입니다.
-AI 분석 결과는 참고용이며 최종 판단은 반드시 전문의가 해야 합니다.
-환자 개인정보가 포함된 DICOM 파일 업로드를 금지합니다.
-""")
-st.markdown("---")
+st.set_page_config(
+    page_title="MRI DICOM AI Analyzer",
+    page_icon="🧠",
+    layout="wide"
+)
 
 mfr_keys = list(MANUFACTURER_PARAMS.keys())
 
-# API Key secrets에서 자동 로드
+# 언어 선택 세션 초기화
+if "lang" not in st.session_state:
+    st.session_state.lang = "ko"
+
+with st.sidebar:
+    lang = st.radio(
+        "🌐 언어 / Language",
+        options=["ko", "en"],
+        format_func=lambda x: "🇰🇷 한국어" if x == "ko" else "🇺🇸 English",
+        horizontal=True,
+        key="lang"
+    )
+
+    T = lambda key: get_text(lang, key)
+
+    st.markdown("---")
+    st.header(T("seq_select"))
+    seq_options = {v["label"]: k for k, v in SEQUENCE_BASELINES.items()}
+    selected_label = st.selectbox(T("seq_label"), list(seq_options.keys()))
+    selected_seq   = seq_options[selected_label]
+    baseline_params = SEQUENCE_BASELINES[selected_seq]["params"]
+    st.markdown("---")
+
+    st.header(T("baseline_setting"))
+    st.caption(T("baseline_caption"))
+
+    user_baseline = {}
+
+    st.subheader(T("seq_params"))
+    for param_name, values in baseline_params.items():
+        if param_name not in mfr_keys:
+            with st.expander(f"📌 {param_name} | {values['impact']}"):
+                c1, c2, c3 = st.columns(3)
+                mn  = c1.number_input(T("min"),     value=float(values["min"]),     key=f"min_{selected_seq}_{param_name}")
+                opt = c2.number_input(T("optimal"), value=float(values["optimal"]), key=f"opt_{selected_seq}_{param_name}")
+                mx  = c3.number_input(T("max"),     value=float(values["max"]),     key=f"max_{selected_seq}_{param_name}")
+                user_baseline[param_name] = {
+                    "min":     mn,
+                    "optimal": opt,
+                    "max":     mx,
+                    "unit":    values["unit"],
+                    "impact":  values["impact"]
+                }
+
+    st.markdown("---")
+    st.subheader(T("mfr_params"))
+    st.caption(T("mfr_caption"))
+    for param_name, values in baseline_params.items():
+        if param_name in mfr_keys:
+            with st.expander(f"⚙️ {param_name} | {values['impact']}"):
+                c1, c2, c3 = st.columns(3)
+                mn  = c1.number_input(T("min"),     value=float(values["min"]),     key=f"min_{selected_seq}_{param_name}")
+                opt = c2.number_input(T("optimal"), value=float(values["optimal"]), key=f"opt_{selected_seq}_{param_name}")
+                mx  = c3.number_input(T("max"),     value=float(values["max"]),     key=f"max_{selected_seq}_{param_name}")
+                user_baseline[param_name] = {
+                    "min":     mn,
+                    "optimal": opt,
+                    "max":     mx,
+                    "unit":    values["unit"],
+                    "impact":  values["impact"]
+                }
+
+# API Key
 try:
     api_key = st.secrets["groq"]["api_key"]
 except:
     api_key = ""
 
-with st.sidebar:
-    st.header("🎯 시퀀스 선택")
-    seq_options = {v["label"]: k for k, v in SEQUENCE_BASELINES.items()}
-    selected_label = st.selectbox("분석할 시퀀스", list(seq_options.keys()))
-    selected_seq = seq_options[selected_label]
-    baseline_params = SEQUENCE_BASELINES[selected_seq]["params"]
-    st.markdown("---")
+T = lambda key: get_text(lang, key)
 
-    st.header("📊 기준값 설정")
-    st.caption("최소 / 최적 / 최대값 수정 가능")
+st.title(T("app_title"))
+st.warning(T("app_warning"))
+st.markdown("---")
 
-    user_baseline = {}
-
-    # 시퀀스 기본 파라미터
-    st.subheader("🔬 시퀀스 파라미터")
-    for param_name, values in baseline_params.items():
-        if param_name not in mfr_keys:
-            with st.expander(f"📌 {param_name} | {values['impact']}"):
-                c1, c2, c3 = st.columns(3)
-                mn  = c1.number_input("최소", value=float(values["min"]),     key=f"min_{selected_seq}_{param_name}")
-                opt = c2.number_input("최적", value=float(values["optimal"]), key=f"opt_{selected_seq}_{param_name}")
-                mx  = c3.number_input("최대", value=float(values["max"]),     key=f"max_{selected_seq}_{param_name}")
-                user_baseline[param_name] = {
-                    "min":     mn,
-                    "optimal": opt,
-                    "max":     mx,
-                    "unit":    values["unit"],
-                    "impact":  values["impact"]
-                }
-
-    st.markdown("---")
-
-    # 제조사 파라미터
-    st.subheader("🏭 제조사 파라미터")
-    st.caption("GE / Siemens / Philips 공통")
-    for param_name, values in baseline_params.items():
-        if param_name in mfr_keys:
-            with st.expander(f"⚙️ {param_name} | {values['impact']}"):
-                c1, c2, c3 = st.columns(3)
-                mn  = c1.number_input("최소", value=float(values["min"]),     key=f"min_{selected_seq}_{param_name}")
-                opt = c2.number_input("최적", value=float(values["optimal"]), key=f"opt_{selected_seq}_{param_name}")
-                mx  = c3.number_input("최대", value=float(values["max"]),     key=f"max_{selected_seq}_{param_name}")
-                user_baseline[param_name] = {
-                    "min":     mn,
-                    "optimal": opt,
-                    "max":     mx,
-                    "unit":    values["unit"],
-                    "impact":  values["impact"]
-                }
-
-st.header("📁 DICOM 파일 업로드")
-st.caption("✅ .dcm 파일 또는 .zip 압축파일 모두 지원")
+st.header(T("upload_header"))
+st.caption(T("upload_caption"))
 
 uploaded_file = st.file_uploader(
-    "DICOM 파일을 드래그하거나 클릭하여 업로드",
+    T("upload_label"),
     type=None
 )
 
 if uploaded_file:
     if uploaded_file.name.endswith(".zip"):
-        with st.spinner("📦 ZIP 압축 해제 중..."):
+        with st.spinner(T("zip_spinner")):
             dcm_files = extract_dcm_from_zip(uploaded_file)
             if not dcm_files:
-                st.error("❌ ZIP 안에서 DICOM 파일을 찾지 못했습니다")
+                st.error(T("zip_error"))
                 st.stop()
-            st.success(f"✅ DICOM 파일 {len(dcm_files)}개 발견!")
-            file_names = [f["name"] for f in dcm_files]
-            selected_name = st.selectbox("분석할 파일 선택", file_names)
-            chosen = next(f for f in dcm_files if f["name"] == selected_name)
-            file_bytes = chosen["bytes"]
-            filename = chosen["name"]
+            st.success(T("zip_success").format(len(dcm_files)))
+            file_names   = [f["name"] for f in dcm_files]
+            selected_name = st.selectbox(T("zip_select"), file_names)
+            chosen       = next(f for f in dcm_files if f["name"] == selected_name)
+            file_bytes   = chosen["bytes"]
+            filename     = chosen["name"]
     else:
         file_bytes = uploaded_file.read()
-        filename = uploaded_file.name
+        filename   = uploaded_file.name
 
-    with st.spinner("📂 DICOM 파일 읽는 중..."):
+    with st.spinner(T("dcm_spinner")):
         try:
             params, ds = extract_dicom_params(file_bytes, filename)
         except Exception as e:
-            st.error(f"❌ DICOM 오류: {e}")
+            st.error(T("dcm_error").format(e))
             st.stop()
 
-    # 제조사 감지 배너
+    # 제조사 배너
     mfr = params["기본 정보"]["감지된 제조사"]
     if mfr == "GE":
-        st.info("🔵 GE 장비 감지됨 - GE 전용 파라미터 추출 완료")
+        st.info(T("mfr_ge"))
     elif mfr == "SIEMENS":
-        st.info("🔴 Siemens 장비 감지됨 - iPAT 등 전용 파라미터 추출 완료")
+        st.info(T("mfr_siemens"))
     elif mfr == "PHILIPS":
-        st.info("🟡 Philips 장비 감지됨 - SENSE 등 전용 파라미터 추출 완료")
+        st.info(T("mfr_philips"))
     else:
-        st.warning("⚠️ 제조사를 감지하지 못했습니다 - 공통 파라미터만 표시")
+        st.warning(T("mfr_unknown"))
 
     # 파라미터 탭
-    st.header("📊 추출된 파라미터")
+    st.header(T("params_header"))
 
-    if mfr in ["GE", "SIEMENS", "PHILIPS"]:
-        mfr_label = {"GE": "GE전용", "SIEMENS": "Siemens전용", "PHILIPS": "Philips전용"}
+    if mfr == "GE":
         t1, t2, t3, t4, t5 = st.tabs([
-            "기본정보", "시퀀스파라미터", "공간해상도", "DWI", mfr_label[mfr]
+            T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi"), T("tab_ge")
         ])
         with t1: st.json(params["기본 정보"])
         with t2: st.json(params["시퀀스 파라미터"])
         with t3: st.json(params["공간 해상도"])
         with t4: st.json(params["DWI 파라미터"])
         with t5: st.json(params["제조사 파라미터"])
+
+    elif mfr == "SIEMENS":
+        t1, t2, t3, t4, t5 = st.tabs([
+            T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi"), T("tab_siemens")
+        ])
+        with t1: st.json(params["기본 정보"])
+        with t2: st.json(params["시퀀스 파라미터"])
+        with t3: st.json(params["공간 해상도"])
+        with t4: st.json(params["DWI 파라미터"])
+        with t5: st.json(params["제조사 파라미터"])
+
+    elif mfr == "PHILIPS":
+        t1, t2, t3, t4, t5 = st.tabs([
+            T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi"), T("tab_philips")
+        ])
+        with t1: st.json(params["기본 정보"])
+        with t2: st.json(params["시퀀스 파라미터"])
+        with t3: st.json(params["공간 해상도"])
+        with t4: st.json(params["DWI 파라미터"])
+        with t5: st.json(params["제조사 파라미터"])
+
     else:
         t1, t2, t3, t4 = st.tabs([
-            "기본정보", "시퀀스파라미터", "공간해상도", "DWI"
+            T("tab_basic"), T("tab_seq"), T("tab_spatial"), T("tab_dwi")
         ])
         with t1: st.json(params["기본 정보"])
         with t2: st.json(params["시퀀스 파라미터"])
@@ -143,20 +179,20 @@ if uploaded_file:
         with t4: st.json(params["DWI 파라미터"])
 
     # 비교표
-    st.header("📋 기준값 비교표")
-    df = create_comparison_table(params, user_baseline)
+    st.header(T("compare_header"))
+    df = create_comparison_table(params, user_baseline, lang)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
     # 레이더 차트
-    st.header("📡 파라미터 레이더 차트")
-    radar = create_radar_chart(params, user_baseline)
+    st.header(T("radar_header"))
+    radar = create_radar_chart(params, user_baseline, lang)
     if radar:
         st.plotly_chart(radar, use_container_width=True)
     else:
-        st.info("차트를 그릴 수 있는 수치 파라미터가 없습니다")
+        st.info(T("radar_empty"))
 
     # 게이지 차트
-    st.header("🎯 파라미터별 게이지")
+    st.header(T("gauge_header"))
     gauges = create_gauge_charts(params, user_baseline)
     if gauges:
         cols = st.columns(3)
@@ -164,25 +200,25 @@ if uploaded_file:
             with cols[i % 3]:
                 st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("게이지를 그릴 수 있는 수치 파라미터가 없습니다")
+        st.info(T("gauge_empty"))
 
     # AI 분석
-    st.header("🤖 AI 분석 결과")
+    st.header(T("ai_header"))
     if not api_key:
-        st.error("❌ API Key가 설정되지 않았습니다. 관리자에게 문의하세요.")
+        st.error(T("ai_no_key"))
     else:
-        if st.button("🔍 AI 분석 시작", type="primary"):
-            with st.spinner("AI 분석 중... (10~20초 소요)"):
+        if st.button(T("ai_button"), type="primary"):
+            with st.spinner(T("ai_spinner")):
                 try:
                     result = analyze_with_openai(
-                        params, api_key, user_baseline, selected_seq
+                        params, api_key, user_baseline, selected_seq, lang
                     )
                     st.markdown(result)
                     st.download_button(
-                        label="📥 분석 결과 다운로드",
+                        label=T("download_button"),
                         data=result,
                         file_name="mri_analysis_result.txt",
                         mime="text/plain"
                     )
                 except Exception as e:
-                    st.error(f"❌ AI 분석 오류: {e}")
+                    st.error(T("ai_error").format(e))
