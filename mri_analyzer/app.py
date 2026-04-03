@@ -46,9 +46,9 @@ with st.sidebar:
         if param_name not in mfr_keys:
             with st.expander(f"📌 {param_name} | {values['impact']}"):
                 c1, c2, c3 = st.columns(3)
-                mn  = c1.number_input("최소", value=float(values["min"]),     key=f"min_{param_name}")
-                opt = c2.number_input("최적", value=float(values["optimal"]), key=f"opt_{param_name}")
-                mx  = c3.number_input("최대", value=float(values["max"]),     key=f"max_{param_name}")
+                mn  = c1.number_input("최소", value=float(values["min"]),     key=f"min_{selected_seq}_{param_name}")
+                opt = c2.number_input("최적", value=float(values["optimal"]), key=f"opt_{selected_seq}_{param_name}")
+                mx  = c3.number_input("최대", value=float(values["max"]),     key=f"max_{selected_seq}_{param_name}")
                 user_baseline[param_name] = {
                     "min":     mn,
                     "optimal": opt,
@@ -66,9 +66,9 @@ with st.sidebar:
         if param_name in mfr_keys:
             with st.expander(f"⚙️ {param_name} | {values['impact']}"):
                 c1, c2, c3 = st.columns(3)
-                mn  = c1.number_input("최소", value=float(values["min"]),     key=f"min_{param_name}")
-                opt = c2.number_input("최적", value=float(values["optimal"]), key=f"opt_{param_name}")
-                mx  = c3.number_input("최대", value=float(values["max"]),     key=f"max_{param_name}")
+                mn  = c1.number_input("최소", value=float(values["min"]),     key=f"min_{selected_seq}_{param_name}")
+                opt = c2.number_input("최적", value=float(values["optimal"]), key=f"opt_{selected_seq}_{param_name}")
+                mx  = c3.number_input("최대", value=float(values["max"]),     key=f"max_{selected_seq}_{param_name}")
                 user_baseline[param_name] = {
                     "min":     mn,
                     "optimal": opt,
