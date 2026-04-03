@@ -1104,4 +1104,3 @@ def generate_compare_pdf_report(params_a, params_b,
     doc.build(story)
     buffer.seek(0)
     return buffer
-  
