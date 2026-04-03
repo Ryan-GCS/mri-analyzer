@@ -17,6 +17,10 @@ import os
 
 def register_fonts():
     font_paths = [
+        os.path.join(os.path.dirname(__file__), "fonts", "NanumGothic.ttf"),
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "./fonts/NanumGothic.ttf",
         "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "./fonts/NanumGothic.ttf",
