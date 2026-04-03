@@ -12,7 +12,7 @@ from functions import (
     create_gauge_charts,
     analyze_with_openai,
 )
-from pdf_report import generate_pdf_report
+from pdf_report import generate_pdf_report, generate_compare_pdf_report
 
 st.set_page_config(
     page_title="MRI DICOM AI Analyzer",
@@ -524,6 +524,26 @@ elif mode == "compare":
                                 data      = result,
                                 file_name = "mri_compare_result.txt",
                                 mime      = "text/plain"
+                            )
+                             cmp_pdf = generate_compare_pdf_report(
+                                params_a      = params_a,
+                                params_b      = params_b,
+                                filename_a    = filename_a,
+                                filename_b    = filename_b,
+                                user_baseline = user_baseline,
+                                df_a          = df_a,
+                                df_b          = df_b,
+                                radar_fig_a   = radar_a,
+                                radar_fig_b   = radar_b,
+                                ai_result     = result,
+                                selected_seq  = selected_seq,
+                                lang          = lang,
+                            )
+                            st.download_button(
+                                label     = T("pdf_download"),
+                                data      = cmp_pdf,
+                                file_name = "MRI_Compare_Report_" + datetime.now().strftime("%Y%m%d_%H%M") + ".pdf",
+                                mime      = "application/pdf",
                             )
                         except Exception as e:
                             st.error(T("ai_error").format(e))
