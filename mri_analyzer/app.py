@@ -525,7 +525,7 @@ elif mode == "compare":
                                 file_name = "mri_compare_result.txt",
                                 mime      = "text/plain"
                             )
-                             cmp_pdf = generate_compare_pdf_report(
+                            cmp_pdf = generate_compare_pdf_report(
                                 params_a      = params_a,
                                 params_b      = params_b,
                                 filename_a    = filename_a,
