@@ -104,6 +104,18 @@ with st.sidebar:
 T = lambda key: get_text(lang, key)
 
 st.title(T("app_title"))
+with st.expander("🔍 DEBUG - 실제 label/impact 값 확인"):
+    st.write("### Sequence Labels")
+    for k, v in SEQUENCE_BASELINES.items():
+        st.write(f"`{v['label']}`")
+    
+    st.write("### All Impacts")
+    all_impacts = set()
+    for v in SEQUENCE_BASELINES.values():
+        for p in v["params"].values():
+            all_impacts.add(p["impact"])
+    for imp in sorted(all_impacts):
+        st.write(f"`{imp}`")
 st.warning(T("app_warning"))
 st.markdown("---")
 
