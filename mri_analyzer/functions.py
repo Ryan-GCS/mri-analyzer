@@ -121,6 +121,52 @@ def extract_dicom_params(file_bytes, filename=""):
         except:
             return default
 
+    # FOV 제조사별 강화 추출
+    def get_fov():
+        # 1단계: 공통 태그
+        fov = safe_get((0x0018, 0x1100))
+        if fov != "N/A":
+            return fov
+
+        # 2단계: Pixel Spacing × Matrix 계산
+        try:
+            spacing = ds[(0x0028, 0x0030)].value
+            rows    = ds[(0x0028, 0x0010)].value
+            if isinstance(spacing, (list, tuple)):
+                ps = float(spacing[0])
+            else:
+                ps = float(str(spacing).split("\\")[0])
+            fov_calc = round(ps * int(rows), 1)
+            return str(fov_calc)
+        except:
+            pass
+
+        # 3단계: Siemens 전용
+        fov = safe_get((0x0051, 0x100C))
+        if fov != "N/A":
+            return fov
+
+        # 4단계: Philips 전용
+        fov = safe_get((0x2005, 0x100D))
+        if fov != "N/A":
+            return fov
+
+        return "N/A"
+
+    # Slice Thickness 강화 추출
+    def get_slice_thickness():
+        # 1단계: 공통 태그
+        st = safe_get((0x0018, 0x0050))
+        if st != "N/A":
+            return st
+
+        # 2단계: GE 전용
+        st = safe_get((0x0043, 0x1039))
+        if st != "N/A":
+            return st
+
+        return "N/A"
+
     mfr, manufacturer_raw = detect_manufacturer(ds)
     mfr_params = extract_manufacturer_params(ds, mfr)
     mfr_params_filtered = {
@@ -149,11 +195,11 @@ def extract_dicom_params(file_bytes, filename=""):
             "Bandwidth":      safe_get((0x0018, 0x0095)),
         },
         "공간 해상도": {
-            "Slice Thickness (mm)": safe_get((0x0050, 0x0018)),
+            "Slice Thickness (mm)": get_slice_thickness(),
             "Pixel Spacing":        safe_get((0x0028, 0x0030)),
             "Matrix Row":           safe_get((0x0028, 0x0010)),
             "Matrix Col":           safe_get((0x0028, 0x0011)),
-            "FOV (mm)":             safe_get((0x0018, 0x1100)),
+            "FOV (mm)":             get_fov(),
             "획득방식(2D/3D)":      safe_get((0x0018, 0x0023)),
         },
         "DWI 파라미터": {
