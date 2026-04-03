@@ -23,6 +23,12 @@ mfr_keys = list(MANUFACTURER_PARAMS.keys())
 if "lang" not in st.session_state:
     st.session_state.lang = "ko"
 
+# API Key
+try:
+    api_key = st.secrets["groq"]["api_key"]
+except:
+    api_key = ""
+
 with st.sidebar:
     lang = st.radio(
         "🌐 언어 / Language",
@@ -34,11 +40,17 @@ with st.sidebar:
 
     T = lambda key: get_text(lang, key)
 
+    def translate_impact(impact, lang):
+        if lang == "ko":
+            return impact
+        impact_map = get_text(lang, "impact_map")
+        return impact_map.get(impact, impact)
+
     st.markdown("---")
     st.header(T("seq_select"))
     seq_options = {v["label"]: k for k, v in SEQUENCE_BASELINES.items()}
-    selected_label = st.selectbox(T("seq_label"), list(seq_options.keys()))
-    selected_seq   = seq_options[selected_label]
+    selected_label  = st.selectbox(T("seq_label"), list(seq_options.keys()))
+    selected_seq    = seq_options[selected_label]
     baseline_params = SEQUENCE_BASELINES[selected_seq]["params"]
     st.markdown("---")
 
@@ -47,10 +59,12 @@ with st.sidebar:
 
     user_baseline = {}
 
+    # 시퀀스 파라미터
     st.subheader(T("seq_params"))
     for param_name, values in baseline_params.items():
         if param_name not in mfr_keys:
-            with st.expander(f"📌 {param_name} | {values['impact']}"):
+            impact_label = translate_impact(values["impact"], lang)
+            with st.expander(f"📌 {param_name} | {impact_label}"):
                 c1, c2, c3 = st.columns(3)
                 mn  = c1.number_input(T("min"),     value=float(values["min"]),     key=f"min_{selected_seq}_{param_name}")
                 opt = c2.number_input(T("optimal"), value=float(values["optimal"]), key=f"opt_{selected_seq}_{param_name}")
@@ -64,11 +78,14 @@ with st.sidebar:
                 }
 
     st.markdown("---")
+
+    # 제조사 파라미터
     st.subheader(T("mfr_params"))
     st.caption(T("mfr_caption"))
     for param_name, values in baseline_params.items():
         if param_name in mfr_keys:
-            with st.expander(f"⚙️ {param_name} | {values['impact']}"):
+            impact_label = translate_impact(values["impact"], lang)
+            with st.expander(f"⚙️ {param_name} | {impact_label}"):
                 c1, c2, c3 = st.columns(3)
                 mn  = c1.number_input(T("min"),     value=float(values["min"]),     key=f"min_{selected_seq}_{param_name}")
                 opt = c2.number_input(T("optimal"), value=float(values["optimal"]), key=f"opt_{selected_seq}_{param_name}")
@@ -80,12 +97,6 @@ with st.sidebar:
                     "unit":    values["unit"],
                     "impact":  values["impact"]
                 }
-
-# API Key
-try:
-    api_key = st.secrets["groq"]["api_key"]
-except:
-    api_key = ""
 
 T = lambda key: get_text(lang, key)
 
@@ -109,11 +120,11 @@ if uploaded_file:
                 st.error(T("zip_error"))
                 st.stop()
             st.success(T("zip_success").format(len(dcm_files)))
-            file_names   = [f["name"] for f in dcm_files]
+            file_names    = [f["name"] for f in dcm_files]
             selected_name = st.selectbox(T("zip_select"), file_names)
-            chosen       = next(f for f in dcm_files if f["name"] == selected_name)
-            file_bytes   = chosen["bytes"]
-            filename     = chosen["name"]
+            chosen        = next(f for f in dcm_files if f["name"] == selected_name)
+            file_bytes    = chosen["bytes"]
+            filename      = chosen["name"]
     else:
         file_bytes = uploaded_file.read()
         filename   = uploaded_file.name
