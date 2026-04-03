@@ -62,6 +62,24 @@ TRANSLATIONS = {
         "radar_optimal":    "최적값",
         "radar_title":      "현재값 vs 최적값 비교",
         "prompt_lang":      "반드시 한국어로 답변해주세요.",
+           "reference_header": "📚 파라미터 기준값 출처",
+        "reference_body": """
+        본 앱의 MRI 시퀀스별 파라미터 기준값은 아래 국제 가이드라인 및 문헌을 바탕으로 설정되었습니다.
+        
+        📖 **주요 참고 문헌 및 기관**
+        - ACR (American College of Radiology) MRI 프로토콜 가이드라인
+        - ISMRM (International Society for Magnetic Resonance in Medicine) 권고안
+        - ESUR (European Society of Urogenital Radiology) 가이드라인
+        - RSNA (Radiological Society of North America) 교육 자료
+        - 각 MRI 제조사 (GE, Siemens, Philips) 공식 프로토콜 매뉴얼
+        - 국내외 대학병원 임상 프로토콜 (서울대, 연세대, 아산병원 등)
+        - 다수의 peer-reviewed 논문 (Radiology, JMRI, MRM 등)
+        
+        ⚠️ **주의사항**
+        - 기준값은 일반적인 임상 권고 범위이며, 장비 사양·환자 상태·임상 목적에 따라 조정이 필요합니다.
+        - 본 도구는 **보조적 참고용**이며, 최종 프로토콜 결정은 반드시 **전문 방사선사 및 영상의학과 전문의**가 해야 합니다.
+        - AI 분석 결과는 Groq LLaMA 모델 기반이며, 의료적 진단을 대체하지 않습니다.
+        """,
         "impact_map": {
             "T1 대조도":         "T1 대조도",
             "T2 대조도":         "T2 대조도",
@@ -176,6 +194,24 @@ TRANSLATIONS = {
         "radar_optimal":    "Optimal",
         "radar_title":      "Current vs Optimal Comparison",
         "prompt_lang":      "Please respond in English.",
+        "reference_header": "📚 Parameter Reference Sources",
+        "reference_body": """
+        The MRI sequence parameter baselines in this app are based on the following international guidelines and literature.
+        
+        📖 **Key References & Organizations**
+        - ACR (American College of Radiology) MRI Protocol Guidelines
+        - ISMRM (International Society for Magnetic Resonance in Medicine) Recommendations
+        - ESUR (European Society of Urogenital Radiology) Guidelines
+        - RSNA (Radiological Society of North America) Educational Materials
+        - Official Protocol Manuals from MRI Manufacturers (GE, Siemens, Philips)
+        - Clinical Protocols from Major Academic Medical Centers
+        - Peer-reviewed Journals (Radiology, JMRI, MRM, etc.)
+        
+        ⚠️ **Disclaimer**
+        - Baseline values represent general clinical recommendations and may need adjustment based on equipment specifications, patient condition, and clinical purpose.
+        - This tool is for **reference purposes only**. Final protocol decisions must be made by **qualified MRI technologists and radiologists**.
+        - AI analysis is powered by Groq LLaMA model and does not replace medical diagnosis.
+        """,
         "impact_map": {
             "T1 대조도":         "T1 Contrast",
             "T2 대조도":         "T2 Contrast",
