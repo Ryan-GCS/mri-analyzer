@@ -48,6 +48,19 @@ with st.sidebar:
 
     st.markdown("---")
     st.header(T("seq_select"))
+    
+    # label 번역 함수
+    def translate_label(label, lang):
+        if lang == "ko":
+            return label
+        label_map = get_text(lang, "label_map")
+        return label_map.get(label, label)
+    
+    # 번역된 label로 드롭다운 생성
+    seq_options_translated = {
+        translate_label(v["label"], lang): k
+        for k, v in SEQUENCE_BASELINES.items()
+    }
     seq_options = {v["label"]: k for k, v in SEQUENCE_BASELINES.items()}
     selected_label  = st.selectbox(T("seq_label"), list(seq_options.keys()))
     selected_seq    = seq_options[selected_label]
