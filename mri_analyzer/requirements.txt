@@ -1,8 +1,8 @@
 streamlit
 pydicom
-plotly
 pandas
-groq
+numpy
+plotly
 reportlab
-Pillow
+matplotlib
 kaleido
