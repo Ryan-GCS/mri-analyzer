@@ -60,7 +60,12 @@ def get_styles(fn):
         try:
             styles.add(style)
         except KeyError:
-            styles[style.name] = style
+            # 이미 있으면 기존 스타일 속성만 업데이트
+            existing = styles[style.name]
+            existing.fontName  = style.fontName
+            existing.fontSize  = style.fontSize
+            existing.leading   = style.leading
+            existing.textColor = style.textColor
 
     add_style(ParagraphStyle(
         name      = "BodyText",
