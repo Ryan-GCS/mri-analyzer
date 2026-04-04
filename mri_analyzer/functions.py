@@ -289,65 +289,71 @@ def create_radar_chart(params, user_baseline, lang):
 
 
 def create_gauge_charts(params, user_baseline):
-    seq_params   = params.get("시퀀스 파라미터", {})
-    space_params = params.get("공간 해상도", {})
-    mfr_params   = params.get("제조사 파라미터", {})
+    seq_p  = params.get("시퀀스 파라미터", {})
+    sp_p   = params.get("공간 해상도", {})
+    mfr_p  = params.get("제조사 파라미터", {})
+    all_p  = {**seq_p, **sp_p, **mfr_p}
 
-    all_params = {}
-    all_params.update(seq_params)
-    all_params.update(space_params)
-    all_params.update(mfr_params)
+    charts = []
 
-    gauges = []
     for param_name, baseline in user_baseline.items():
-        current = all_params.get(param_name)
-        mn      = baseline.get("min")
-        mx      = baseline.get("max")
-        opt     = baseline.get("optimal")
-        unit    = baseline.get("unit", "")
-
+        val = all_p.get(param_name)
+        if val is None:
+            continue
         try:
-            cur_f = float(current)
+            cur = float(val)
+            mn  = float(baseline["min"])
+            mx  = float(baseline["max"])
+            opt = float(baseline["optimal"])
+
+            fig = go.Figure(go.Indicator(
+                mode  = "gauge+number",
+                value = cur,
+                title = {
+                    "text": param_name + "<br><span style='font-size:0.8em;color:gray'>"
+                            + baseline.get("unit", "") + "</span>",
+                    "font": {"size": 13},
+                },
+                gauge = {
+                    "axis": {
+                        "range":     [mn, mx],
+                        "tickwidth": 1,
+                        "tickcolor": "darkblue",
+                    },
+                    "bar":       {"color": "darkblue", "thickness": 0.15},
+                    "bgcolor":   "white",
+                    "borderwidth": 2,
+                    "bordercolor": "gray",
+                    "steps": [
+                        {"range": [mn,  opt], "color": "lightblue"},
+                        {"range": [opt, mx],  "color": "lightblue"},
+                    ],
+                    "threshold": {
+                        "line":      {"color": "red", "width": 4},
+                        "thickness": 0.75,
+                        "value":     cur,
+                    },
+                },
+            ))
+
+            fig.update_layout(
+                height  = 250,
+                margin  = dict(
+                    t = 80,   # ← 위 여백 충분히 확보 (기존 30~40 → 80)
+                    b = 20,
+                    l = 30,
+                    r = 30,
+                ),
+                font = dict(size=12),
+            )
+
+            charts.append((param_name, fig))
+
         except Exception:
             continue
 
-        rng   = mx - mn if mx != mn else 1
-        score = max(0, min(100, 100 - abs(cur_f - opt) / rng * 100))
+    return charts
 
-        if score >= 80:
-            color = "#2E7D32"
-        elif score >= 50:
-            color = "#F57F17"
-        else:
-            color = "#C62828"
-
-        fig = go.Figure(go.Indicator(
-            mode  = "gauge+number",
-            value = cur_f,
-            title = {"text": param_name + "<br><sub>" + unit + "</sub>",
-                     "font": {"size": 12}},
-            gauge = {
-                "axis":  {"range": [mn, mx]},
-                "bar":   {"color": color},
-                "steps": [
-                    {"range": [mn, opt], "color": "#E3F2FD"},
-                    {"range": [opt, mx], "color": "#BBDEFB"},
-                ],
-                "threshold": {
-                    "line":      {"color": "#1B3A5C", "width": 3},
-                    "thickness": 0.75,
-                    "value":     opt,
-                },
-            },
-        ))
-        fig.update_layout(
-            height        = 200,
-            margin        = dict(l=20, r=20, t=50, b=20),
-            paper_bgcolor = "rgba(0,0,0,0)",
-        )
-        gauges.append((param_name, fig))
-
-    return gauges if gauges else None
 def analyze_with_openai(params, api_key, user_baseline,
                         selected_seq, lang, custom_prompt=None):
     client = Groq(api_key=api_key)
