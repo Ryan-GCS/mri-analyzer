@@ -1,8 +1,8 @@
 import io
+import re
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -31,22 +31,32 @@ C_WHITE   = white
 
 # ── 폰트 등록 ──────────────────────────────────────────────
 def register_fonts():
-    font_paths = [
-        ("NanumGothic",      "NanumGothic.ttf"),
-        ("NanumGothic-Bold", "NanumGothicBold.ttf"),
+    candidates = [
+        ("NanumGothic",      ["NanumGothic.ttf",     "nanumgothic.ttf"]),
+        ("NanumGothic-Bold", ["NanumGothicBold.ttf", "nanumgothicbold.ttf"]),
+    ]
+    search_dirs = [
+        ".", "./fonts",
+        "/usr/share/fonts",
+        "/usr/share/fonts/truetype",
+        "/usr/share/fonts/truetype/nanum",
+        "/usr/local/share/fonts",
     ]
     registered = []
-    for font_name, font_file in font_paths:
-        for search_dir in [".", "./fonts", "/usr/share/fonts",
-                           "/usr/share/fonts/truetype/nanum"]:
-            full_path = os.path.join(search_dir, font_file)
-            if os.path.exists(full_path):
-                try:
-                    pdfmetrics.registerFont(TTFont(font_name, full_path))
-                    registered.append(font_name)
-                    break
-                except Exception:
-                    pass
+    for font_name, file_list in candidates:
+        for font_file in file_list:
+            for d in search_dirs:
+                full = os.path.join(d, font_file)
+                if os.path.exists(full):
+                    try:
+                        pdfmetrics.registerFont(TTFont(font_name, full))
+                        registered.append(font_name)
+                        break
+                    except Exception:
+                        pass
+            if font_name in registered:
+                break
+
     if "NanumGothic" in registered:
         return "NanumGothic"
     return "Helvetica"
@@ -60,7 +70,6 @@ def get_styles(fn):
         try:
             styles.add(style)
         except KeyError:
-            # 이미 있으면 기존 스타일 속성만 업데이트
             existing = styles[style.name]
             existing.fontName  = style.fontName
             existing.fontSize  = style.fontSize
@@ -104,11 +113,11 @@ def build_section_title(text, fn, fb):
     return Paragraph(
         "<font color='#2C3E50'><b>" + text + "</b></font>",
         ParagraphStyle(
-            name     = "ST_" + text[:10],
-            fontName = fb,
-            fontSize = 12,
-            leading  = 18,
-            textColor= C_PRIMARY,
+            name      = "ST_" + text[:8].replace(" ", "_"),
+            fontName  = fb,
+            fontSize  = 12,
+            leading   = 18,
+            textColor = C_PRIMARY,
         )
     )
 
@@ -122,30 +131,24 @@ def score_color(score):
 
 
 def status_color(status):
-    if "최적" in status or "Optimal" in status or "정상" in status:
+    s = str(status)
+    if any(x in s for x in ["최적", "Optimal", "정상", "Good"]):
         return C_GREEN
-    elif "높음" in status or "낮음" in status or "High" in status or "Low" in status:
+    elif any(x in s for x in ["높음", "낮음", "High", "Low"]):
         return C_ORANGE
-    elif "초과" in status or "미달" in status or "Over" in status or "Under" in status:
+    elif any(x in s for x in ["초과", "미달", "Over", "Under"]):
         return C_RED
     return C_MID
 
 
-def fig_to_image(fig, width_mm=170, height_mm=90):
-    buf = io.BytesIO()
-    fig.write_image(buf, format="png", scale=2)
-    buf.seek(0)
-    return RLImage(buf, width=width_mm * mm, height=height_mm * mm)
-
-
 def mpl_radar_to_image(params, user_baseline, width_mm=85, height_mm=75):
+    seq_p = params.get("시퀀스 파라미터", {})
+    sp_p  = params.get("공간 해상도", {})
+    mfr_p = params.get("제조사 파라미터", {})
+    all_p = {**seq_p, **sp_p, **mfr_p}
+
     labels = []
     values = []
-    seq_p  = params.get("시퀀스 파라미터", {})
-    sp_p   = params.get("공간 해상도", {})
-    mfr_p  = params.get("제조사 파라미터", {})
-    all_p  = {**seq_p, **sp_p, **mfr_p}
-
     for k, v in user_baseline.items():
         val = all_p.get(k)
         if val is None:
@@ -190,36 +193,6 @@ def mpl_radar_to_image(params, user_baseline, width_mm=85, height_mm=75):
     return RLImage(buf, width=width_mm * mm, height=height_mm * mm)
 
 
-def build_score_bar(score, fn, fb, width_mm=170):
-    color = score_color(score)
-    bar_w = int(width_mm * score / 100)
-
-    bar_table = Table(
-        [[""]],
-        colWidths  = [bar_w * mm],
-        rowHeights = [5 * mm],
-    )
-    bar_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), color),
-        ("LINEABOVE",  (0, 0), (-1, -1), 0, color),
-    ]))
-
-    bg_table = Table(
-        [[bar_table]],
-        colWidths  = [width_mm * mm],
-        rowHeights = [5 * mm],
-    )
-    bg_table.setStyle(TableStyle([
-        ("BACKGROUND",   (0, 0), (-1, -1), C_BORDER),
-        ("ALIGN",        (0, 0), (-1, -1), "LEFT"),
-        ("LEFTPADDING",  (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING",   (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING",(0, 0), (-1, -1), 0),
-    ]))
-    return bg_table
-
-
 def build_disclaimer(fn, lang):
     if lang == "ko":
         txt = (
@@ -233,7 +206,7 @@ def build_disclaimer(fn, lang):
             "clinical judgment. Final decisions must be made by qualified medical professionals."
         )
     return Paragraph(txt, ParagraphStyle(
-        name      = "Disc",
+        name      = "Disc2",
         fontName  = fn,
         fontSize  = 7,
         leading   = 11,
@@ -241,32 +214,111 @@ def build_disclaimer(fn, lang):
     ))
 
 
+# ── 마크다운 표 → PDF 표 변환 ──────────────────────────────
+def parse_markdown_table(lines, fn, fb):
+    rows = []
+    for line in lines:
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        if re.match(r"^\|[-| :]+\|$", line):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        rows.append(cells)
+
+    if not rows:
+        return None
+
+    max_cols = max(len(r) for r in rows)
+    col_w    = 180 * mm / max_cols
+
+    table_data = []
+    for ri, row in enumerate(rows):
+        while len(row) < max_cols:
+            row.append("")
+        if ri == 0:
+            table_data.append([
+                Paragraph("<b>" + c + "</b>",
+                          ParagraphStyle(name="MTH" + str(ci), fontName=fb,
+                                         fontSize=8, leading=12, textColor=C_WHITE))
+                for ci, c in enumerate(row)
+            ])
+        else:
+            table_data.append([
+                Paragraph(c,
+                          ParagraphStyle(name="MTD" + str(ri) + "_" + str(ci),
+                                         fontName=fn, fontSize=8, leading=12))
+                for ci, c in enumerate(row)
+            ])
+
+    t = Table(table_data, colWidths=[col_w] * max_cols, repeatRows=1)
+    t.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, 0),  C_PRIMARY),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [C_WHITE, C_BG]),
+        ("GRID",          (0, 0), (-1, -1), 0.3, C_BORDER),
+        ("TOPPADDING",    (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    return t
+
+
+# ── AI 결과 파싱 (마크다운 표 포함) ───────────────────────
 def build_ai_section(ai_result, fn, fb):
-    items  = []
-    styles = getSampleStyleSheet()
+    items = []
     body_style = ParagraphStyle(
-        name     = "AIBody",
+        name     = "AIBody2",
         fontName = fn,
         fontSize = 9,
         leading  = 14,
     )
     head_style = ParagraphStyle(
-        name     = "AIHead",
-        fontName = fb,
-        fontSize = 10,
-        leading  = 16,
-        textColor= C_PRIMARY,
+        name      = "AIHead2",
+        fontName  = fb,
+        fontSize  = 10,
+        leading   = 16,
+        textColor = C_PRIMARY,
     )
-    for line in ai_result.split("\n"):
-        line = line.strip()
-        if not line:
+
+    lines        = ai_result.split("\n")
+    i            = 0
+    table_buffer = []
+
+    while i < len(lines):
+        line = lines[i]
+
+        # 마크다운 표 감지
+        if line.strip().startswith("|"):
+            table_buffer.append(line)
+            i += 1
+            while i < len(lines) and lines[i].strip().startswith("|"):
+                table_buffer.append(lines[i])
+                i += 1
+            tbl = parse_markdown_table(table_buffer, fn, fb)
+            if tbl:
+                items.append(Spacer(1, 2 * mm))
+                items.append(tbl)
+                items.append(Spacer(1, 2 * mm))
+            table_buffer = []
+            continue
+
+        stripped = line.strip()
+        if not stripped:
             items.append(Spacer(1, 3 * mm))
-        elif line.startswith("##"):
-            items.append(Paragraph(line.replace("##", "").strip(), head_style))
-        elif line.startswith("#"):
-            items.append(Paragraph(line.replace("#", "").strip(), head_style))
+        elif stripped.startswith("##"):
+            items.append(Paragraph(stripped.replace("##", "").strip(), head_style))
+        elif stripped.startswith("#"):
+            items.append(Paragraph(stripped.replace("#", "").strip(), head_style))
+        elif stripped.startswith("- ") or stripped.startswith("* "):
+            items.append(Paragraph("• " + stripped[2:], body_style))
+        elif re.match(r"^\d+\.", stripped):
+            items.append(Paragraph(stripped, body_style))
         else:
-            items.append(Paragraph(line, body_style))
+            items.append(Paragraph(stripped, body_style))
+        i += 1
+
     return items
 # ── 단일 영상 PDF ───────────────────────────────────────────
 def generate_pdf_report(params, user_baseline, df,
@@ -285,7 +337,6 @@ def generate_pdf_report(params, user_baseline, df,
         topMargin    = 15 * mm,
         bottomMargin = 15 * mm,
     )
-
     story = []
 
     # ── 헤더 ──────────────────────────────────────────────
@@ -327,16 +378,16 @@ def generate_pdf_report(params, user_baseline, df,
     # ── 기본 정보 ──────────────────────────────────────────
     basic = params.get("기본 정보", {})
     if lang == "ko":
-        info_title = "기본 정보"
+        info_title    = "기본 정보"
         info_data_raw = {
-            "환자 ID":    basic.get("환자 ID", "-"),
-            "검사일":     basic.get("검사일", "-"),
-            "제조사":     basic.get("감지된 제조사", "-"),
-            "모델명":     basic.get("모델명", "-"),
-            "자장강도":   basic.get("자장강도", "-"),
+            "환자 ID":  basic.get("환자 ID", "-"),
+            "검사일":   basic.get("검사일", "-"),
+            "제조사":   basic.get("감지된 제조사", "-"),
+            "모델명":   basic.get("모델명", "-"),
+            "자장강도": basic.get("자장강도", "-"),
         }
     else:
-        info_title = "Basic Information"
+        info_title    = "Basic Information"
         info_data_raw = {
             "Patient ID":     basic.get("환자 ID", "-"),
             "Study Date":     basic.get("검사일", "-"),
@@ -382,7 +433,7 @@ def generate_pdf_report(params, user_baseline, df,
     story.append(Spacer(1, 2 * mm))
 
     if df is not None and len(df) > 0:
-        col_names = list(df.columns)
+        col_names  = list(df.columns)
         header_row = [
             Paragraph("<b>" + c + "</b>",
                       ParagraphStyle(name="TH" + str(i), fontName=fb,
@@ -390,6 +441,7 @@ def generate_pdf_report(params, user_baseline, df,
             for i, c in enumerate(col_names)
         ]
         table_data = [header_row]
+
         for _, row in df.iterrows():
             row_data = []
             for i, val in enumerate(row):
@@ -398,24 +450,25 @@ def generate_pdf_report(params, user_baseline, df,
                     col = status_color(txt)
                     p = Paragraph(
                         "<font color='" + col.hexval() + "'><b>" + txt + "</b></font>",
-                        ParagraphStyle(name="TD" + str(i), fontName=fn,
+                        ParagraphStyle(name="TDS" + str(i), fontName=fn,
                                        fontSize=8, leading=12)
                     )
                 else:
-                    p = Paragraph(txt,
-                                  ParagraphStyle(name="TD" + str(i), fontName=fn,
-                                                 fontSize=8, leading=12))
+                    p = Paragraph(
+                        txt,
+                        ParagraphStyle(name="TDN" + str(i), fontName=fn,
+                                       fontSize=8, leading=12)
+                    )
                 row_data.append(p)
             table_data.append(row_data)
 
-        n_cols   = len(col_names)
-        col_w    = 190 * mm / n_cols
+        n_cols     = len(col_names)
+        col_w      = 190 * mm / n_cols
         col_widths = [col_w] * n_cols
 
         param_table = Table(table_data, colWidths=col_widths, repeatRows=1)
         param_table.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, 0),  C_PRIMARY),
-            ("BACKGROUND",    (0, 1), (-1, -1), C_WHITE),
             ("ROWBACKGROUNDS",(0, 1), (-1, -1), [C_WHITE, C_BG]),
             ("GRID",          (0, 0), (-1, -1), 0.3, C_BORDER),
             ("TOPPADDING",    (0, 0), (-1, -1), 4),
@@ -425,6 +478,7 @@ def generate_pdf_report(params, user_baseline, df,
             ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
         ]))
         story.append(param_table)
+
     story.append(Spacer(1, 5 * mm))
 
     # ── 레이더 차트 ────────────────────────────────────────
@@ -439,6 +493,7 @@ def generate_pdf_report(params, user_baseline, df,
     radar_img = mpl_radar_to_image(params, user_baseline)
     if radar_img:
         story.append(radar_img)
+
     story.append(Spacer(1, 5 * mm))
 
     # ── AI 분석 결과 ───────────────────────────────────────
@@ -463,117 +518,7 @@ def generate_pdf_report(params, user_baseline, df,
     doc.build(story)
     buffer.seek(0)
     return buffer
-# ── 비교 영상 PDF ───────────────────────────────────────────
-def generate_compare_pdf_report(params_a, params_b,
-                                filename_a, filename_b,
-                                user_baseline,
-                                df_a, df_b,
-                                radar_fig_a, radar_fig_b,
-                                ai_result,
-                                selected_seq, lang="ko"):
-
-    buffer = io.BytesIO()
-    fn     = register_fonts()
-    styles, fb = get_styles(fn)
-
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize     = A4,
-        leftMargin   = 15 * mm,
-        rightMargin  = 15 * mm,
-        topMargin    = 15 * mm,
-        bottomMargin = 15 * mm,
-    )
-
-    story = []
-
-    # ── 헤더 ──────────────────────────────────────────────
-    if lang == "ko":
-        title_txt    = "MRI DICOM 비교 분석 보고서"
-        subtitle_txt = "시퀀스 : " + selected_seq
-        date_txt     = "생성일 : " + __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M")
-        img_a_label  = "영상 A"
-        img_b_label  = "영상 B"
-    else:
-        title_txt    = "MRI DICOM Comparison Report"
-        subtitle_txt = "Sequence : " + selected_seq
-        date_txt     = "Generated : " + __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M")
-        img_a_label  = "Image A"
-        img_b_label  = "Image B"
-
-    header_table = Table(
-        [[
-            Paragraph(
-                "<font color='white'><b>" + title_txt + "</b></font>",
-                ParagraphStyle(name="CHT", fontName=fb, fontSize=16,
-                               leading=22, textColor=C_WHITE)
-            ),
-            Paragraph(
-                "<font color='white'>" + subtitle_txt + "<br/>" + date_txt + "</font>",
-                ParagraphStyle(name="CHS", fontName=fn, fontSize=9,
-                               leading=14, textColor=C_WHITE, alignment=2)
-            ),
-        ]],
-        colWidths=[120 * mm, 70 * mm],
-    )
-    header_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, -1), C_PRIMARY),
-        ("TOPPADDING",    (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-    ]))
-    story.append(header_table)
-    story.append(Spacer(1, 6 * mm))
-
-    # ── 파일명 표시 ────────────────────────────────────────
-    file_table = Table(
-        [[
-            Paragraph(
-                "<b>" + img_a_label + "</b><br/>" + filename_a,
-                ParagraphStyle(name="FA", fontName=fn, fontSize=9,
-                               leading=14, textColor=C_WHITE)
-            ),
-            Paragraph(
-                "<b>" + img_b_label + "</b><br/>" + filename_b,
-                ParagraphStyle(name="FB", fontName=fn, fontSize=9,
-                               leading=14, textColor=C_WHITE)
-            ),
-        ]],
-        colWidths=[95 * mm, 95 * mm],
-    )
-    file_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (0, 0), C_ACCENT),
-        ("BACKGROUND",    (1, 0), (1, 0), C_ORANGE),
-        ("TOPPADDING",    (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-    ]))
-    story.append(file_table)
-    story.append(Spacer(1, 5 * mm))
-
-    # ── 파라미터 비교표 ────────────────────────────────────
-    if lang == "ko":
-        table_title = "파라미터 비교표"
-        col_a_label = "영상 A 값"
-        col_b_label = "영상 B 값"
-        diff_label  = "차이"
-        param_label = "파라미터"
-    else:
-        table_title = "Parameter Comparison Table"
-        col_a_label = "Image A"
-        col_b_label = "Image B"
-        diff_label  = "Diff"
-        param_label = "Parameter"
-
-    story.append(build_section_title(table_title, fn, fb))
-    story.append(Spacer(1, 2 * mm))
-
     if df_a is not None and df_b is not None and len(df_a) > 0:
-        val_col = df_a.columns[1]
 
         header_row = [
             Paragraph("<b>" + param_label + "</b>",
@@ -593,11 +538,11 @@ def generate_compare_pdf_report(params_a, params_b,
         cmp_data = [header_row]
 
         for i in range(min(len(df_a), len(df_b))):
-            row_a   = df_a.iloc[i]
-            row_b   = df_b.iloc[i]
-            p_name  = str(row_a.iloc[0])
-            val_a   = str(row_a.iloc[1])
-            val_b   = str(row_b.iloc[1])
+            row_a  = df_a.iloc[i]
+            row_b  = df_b.iloc[i]
+            p_name = str(row_a.iloc[0])
+            val_a  = str(row_a.iloc[1])
+            val_b  = str(row_b.iloc[1])
 
             try:
                 diff_val = float(row_b.iloc[1]) - float(row_a.iloc[1])
@@ -633,8 +578,8 @@ def generate_compare_pdf_report(params_a, params_b,
 
         cmp_table = Table(
             cmp_data,
-            colWidths   = [60 * mm, 40 * mm, 40 * mm, 40 * mm],
-            repeatRows  = 1,
+            colWidths  = [60 * mm, 40 * mm, 40 * mm, 40 * mm],
+            repeatRows = 1,
         )
         cmp_table.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, 0),  C_PRIMARY),
@@ -665,7 +610,7 @@ def generate_compare_pdf_report(params_a, params_b,
                                      width_mm=85, height_mm=75)
 
     if radar_img_a and radar_img_b:
-        radar_row = Table(
+        label_row = Table(
             [[
                 Paragraph(
                     "<b>" + img_a_label + "</b>",
@@ -680,7 +625,7 @@ def generate_compare_pdf_report(params_a, params_b,
             ]],
             colWidths=[95 * mm, 95 * mm],
         )
-        story.append(radar_row)
+        story.append(label_row)
         story.append(Spacer(1, 1 * mm))
 
         radar_img_table = Table(
