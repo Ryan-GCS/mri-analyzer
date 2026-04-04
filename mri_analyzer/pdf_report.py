@@ -16,46 +16,53 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-# ── 색상 ───────────────────────────────────────────────────
-C_PRIMARY = HexColor("#2C3E50")
-C_ACCENT  = HexColor("#2980B9")
-C_GREEN   = HexColor("#27AE60")
-C_ORANGE  = HexColor("#E67E22")
-C_RED     = HexColor("#E74C3C")
-C_BG      = HexColor("#F8F9FA")
-C_BORDER  = HexColor("#DEE2E6")
-C_MID     = HexColor("#7F8C8D")
-C_BLACK   = black
-C_WHITE   = white
+# ── 파스텔 블루 컬러 팔레트 ───────────────────────────────
+C_PRIMARY  = HexColor("#4A7FA5")   # 메인 헤더 (중간 파란)
+C_ACCENT   = HexColor("#6BAED6")   # 포인트 (밝은 파란)
+C_LIGHT    = HexColor("#C6DCEF")   # 연한 파스텔 파란
+C_PALE     = HexColor("#EBF4FB")   # 아주 연한 배경 파란
+C_GREEN    = HexColor("#74C69D")   # 파스텔 그린 (최적)
+C_ORANGE   = HexColor("#FFB347")   # 파스텔 오렌지 (주의)
+C_RED      = HexColor("#FF8FA3")   # 파스텔 레드 (초과)
+C_BG       = HexColor("#F0F7FF")   # 테이블 배경
+C_BORDER   = HexColor("#B8D4E8")   # 테이블 테두리
+C_MID      = HexColor("#7FA8C0")   # 중간 텍스트
+C_BLACK    = HexColor("#2C3E50")   # 본문 텍스트
+C_WHITE    = white
 
 
 # ── 폰트 등록 ──────────────────────────────────────────────
 def register_fonts():
+    # 현재 파일 기준 경로
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
     candidates = [
-        ("NanumGothic",      ["NanumGothic.ttf",     "nanumgothic.ttf"]),
-        ("NanumGothic-Bold", ["NanumGothicBold.ttf", "nanumgothicbold.ttf"]),
+        ("NanumGothic",      "NanumGothic.ttf"),
+        ("NanumGothic-Bold", "NanumGothicBold.ttf"),
     ]
     search_dirs = [
-        ".", "./fonts",
-        "/usr/share/fonts",
-        "/usr/share/fonts/truetype",
+        os.path.join(base_dir, "fonts"),   # ← 프로젝트 fonts/ 폴더 우선!
+        base_dir,
+        ".",
+        "./fonts",
         "/usr/share/fonts/truetype/nanum",
+        "/usr/share/fonts/truetype",
+        "/usr/share/fonts",
         "/usr/local/share/fonts",
     ]
+
     registered = []
-    for font_name, file_list in candidates:
-        for font_file in file_list:
-            for d in search_dirs:
-                full = os.path.join(d, font_file)
-                if os.path.exists(full):
-                    try:
-                        pdfmetrics.registerFont(TTFont(font_name, full))
-                        registered.append(font_name)
-                        break
-                    except Exception:
-                        pass
-            if font_name in registered:
-                break
+    for font_name, font_file in candidates:
+        for d in search_dirs:
+            full = os.path.join(d, font_file)
+            if os.path.exists(full):
+                try:
+                    pdfmetrics.registerFont(TTFont(font_name, full))
+                    registered.append(font_name)
+                    break
+                except Exception:
+                    pass
+
     if "NanumGothic" in registered:
         return "NanumGothic"
     return "Helvetica"
@@ -69,7 +76,7 @@ def get_styles(fn):
         try:
             styles.add(style)
         except KeyError:
-            existing = styles[style.name]
+            existing           = styles[style.name]
             existing.fontName  = style.fontName
             existing.fontSize  = style.fontSize
             existing.leading   = style.leading
@@ -97,7 +104,7 @@ def get_styles(fn):
 # ── 헬퍼 함수 ──────────────────────────────────────────────
 def build_section_title(text, fn, fb):
     return Paragraph(
-        "<font color='#2C3E50'><b>" + text + "</b></font>",
+        "<font color='#4A7FA5'><b>" + text + "</b></font>",
         ParagraphStyle(
             name      = "ST_" + text[:8].replace(" ", "_"),
             fontName  = fb,
@@ -158,10 +165,10 @@ def mpl_radar_to_image(params, user_baseline, width_mm=85, height_mm=75):
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(labels, size=6)
     ax.set_ylim(0, 1)
-    ax.plot(angles, values, "o-", linewidth=1.5, color="#2980B9")
-    ax.fill(angles, values, alpha=0.25, color="#2980B9")
-    ax.set_facecolor("#F8F9FA")
-    fig.patch.set_facecolor("#F8F9FA")
+    ax.plot(angles, values, "o-", linewidth=1.5, color="#4A7FA5")
+    ax.fill(angles, values, alpha=0.25, color="#6BAED6")
+    ax.set_facecolor("#F0F7FF")
+    fig.patch.set_facecolor("#F0F7FF")
     plt.tight_layout()
 
     buf = io.BytesIO()
@@ -217,8 +224,9 @@ def parse_markdown_table(lines, fn, fb):
                 Paragraph(
                     "<b>" + c + "</b>",
                     ParagraphStyle(
-                        name="MTH" + str(ri) + "_" + str(ci),
-                        fontName=fb, fontSize=8, leading=12, textColor=C_WHITE
+                        name    = "MTH" + str(ri) + "_" + str(ci),
+                        fontName= fb, fontSize=8,
+                        leading = 12, textColor=C_WHITE
                     )
                 )
                 for ci, c in enumerate(row)
@@ -228,8 +236,8 @@ def parse_markdown_table(lines, fn, fb):
                 Paragraph(
                     c,
                     ParagraphStyle(
-                        name="MTD" + str(ri) + "_" + str(ci),
-                        fontName=fn, fontSize=8, leading=12
+                        name    = "MTD" + str(ri) + "_" + str(ci),
+                        fontName= fn, fontSize=8, leading=12
                     )
                 )
                 for ci, c in enumerate(row)
@@ -327,6 +335,7 @@ def generate_pdf_report(params, user_baseline, df,
         subtitle_txt = "Sequence : " + selected_seq
         date_txt     = "Generated : " + now
 
+    # ── 헤더 ──────────────────────────────────────────────
     header_table = Table(
         [[
             Paragraph(
@@ -356,7 +365,7 @@ def generate_pdf_report(params, user_baseline, df,
     # ── 기본 정보 ──────────────────────────────────────────
     basic = params.get("기본 정보", {})
     if lang == "ko":
-        info_title    = "기본 정보"
+        info_title    = "📋 기본 정보"
         info_data_raw = {
             "환자 ID":  basic.get("환자 ID", "-"),
             "검사일":   basic.get("검사일", "-"),
@@ -365,7 +374,7 @@ def generate_pdf_report(params, user_baseline, df,
             "자장강도": basic.get("자장강도", "-"),
         }
     else:
-        info_title    = "Basic Information"
+        info_title    = "📋 Basic Information"
         info_data_raw = {
             "Patient ID":     basic.get("환자 ID", "-"),
             "Study Date":     basic.get("검사일", "-"),
@@ -383,21 +392,23 @@ def generate_pdf_report(params, user_baseline, df,
             Paragraph(
                 "<b>" + k + "</b>",
                 ParagraphStyle(name="IK" + k[:4], fontName=fb,
-                               fontSize=8, leading=12)
+                               fontSize=8, leading=12, textColor=C_PRIMARY)
             ),
             Paragraph(
                 str(v),
                 ParagraphStyle(name="IV" + k[:4], fontName=fn,
-                               fontSize=8, leading=12)
+                               fontSize=8, leading=12, textColor=C_BLACK)
             ),
         ])
 
     info_table = Table(info_rows, colWidths=[50 * mm, 140 * mm])
     info_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (0, -1), C_BG),
+        ("BACKGROUND",    (0, 0), (0, -1), C_LIGHT),
+        ("BACKGROUND",    (1, 0), (1, -1), C_WHITE),
+        ("ROWBACKGROUNDS",(1, 0), (1, -1), [C_WHITE, C_PALE]),
         ("GRID",          (0, 0), (-1, -1), 0.3, C_BORDER),
-        ("TOPPADDING",    (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING",    (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ("LEFTPADDING",   (0, 0), (-1, -1), 6),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
@@ -407,9 +418,9 @@ def generate_pdf_report(params, user_baseline, df,
 
     # ── 파라미터 비교표 ────────────────────────────────────
     if lang == "ko":
-        table_title = "파라미터 비교표"
+        table_title = "📊 파라미터 비교표"
     else:
-        table_title = "Parameter Comparison Table"
+        table_title = "📊 Parameter Comparison Table"
 
     story.append(build_section_title(table_title, fn, fb))
     story.append(Spacer(1, 2 * mm))
@@ -441,7 +452,7 @@ def generate_pdf_report(params, user_baseline, df,
                     p = Paragraph(
                         txt,
                         ParagraphStyle(name="TDN" + str(i), fontName=fn,
-                                       fontSize=8, leading=12)
+                                       fontSize=8, leading=12, textColor=C_BLACK)
                     )
                 row_data.append(p)
             table_data.append(row_data)
@@ -453,7 +464,7 @@ def generate_pdf_report(params, user_baseline, df,
         param_table = Table(table_data, colWidths=col_widths, repeatRows=1)
         param_table.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, 0),  C_PRIMARY),
-            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [C_WHITE, C_BG]),
+            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [C_WHITE, C_PALE]),
             ("GRID",          (0, 0), (-1, -1), 0.3, C_BORDER),
             ("TOPPADDING",    (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
@@ -467,9 +478,9 @@ def generate_pdf_report(params, user_baseline, df,
 
     # ── 레이더 차트 ────────────────────────────────────────
     if lang == "ko":
-        radar_title = "파라미터 적합도 레이더 차트"
+        radar_title = "🕸️ 파라미터 적합도 레이더 차트"
     else:
-        radar_title = "Parameter Fitness Radar Chart"
+        radar_title = "🕸️ Parameter Fitness Radar Chart"
 
     story.append(build_section_title(radar_title, fn, fb))
     story.append(Spacer(1, 2 * mm))
@@ -482,9 +493,9 @@ def generate_pdf_report(params, user_baseline, df,
 
     # ── AI 분석 결과 ───────────────────────────────────────
     if lang == "ko":
-        ai_title = "AI 분석 결과"
+        ai_title = "🤖 AI 분석 결과"
     else:
-        ai_title = "AI Analysis Result"
+        ai_title = "🤖 AI Analysis Result"
 
     story.append(build_section_title(ai_title, fn, fb))
     story.append(Spacer(1, 2 * mm))
@@ -534,26 +545,26 @@ def generate_compare_pdf_report(params_a, params_b,
         date_txt    = "생성일 : " + now
         img_a_label = "영상 A"
         img_b_label = "영상 B"
-        table_title = "파라미터 비교표"
+        table_title = "📊 파라미터 비교표"
         col_a_label = "영상 A 값"
         col_b_label = "영상 B 값"
         diff_label  = "차이"
         param_label = "파라미터"
-        radar_title = "레이더 차트 비교"
-        ai_title    = "AI 비교 분석 결과"
+        radar_title = "🕸️ 레이더 차트 비교"
+        ai_title    = "🤖 AI 비교 분석 결과"
     else:
         title_txt   = "MRI DICOM Comparison Report"
         subtitle_txt= "Sequence : " + selected_seq
         date_txt    = "Generated : " + now
         img_a_label = "Image A"
         img_b_label = "Image B"
-        table_title = "Parameter Comparison Table"
+        table_title = "📊 Parameter Comparison Table"
         col_a_label = "Image A Value"
         col_b_label = "Image B Value"
         diff_label  = "Diff"
         param_label = "Parameter"
-        radar_title = "Radar Chart Comparison"
-        ai_title    = "AI Comparison Analysis Result"
+        radar_title = "🕸️ Radar Chart Comparison"
+        ai_title    = "🤖 AI Comparison Analysis Result"
 
     # ── 헤더 ──────────────────────────────────────────────
     header_table = Table(
@@ -581,7 +592,6 @@ def generate_compare_pdf_report(params_a, params_b,
     ]))
     story.append(header_table)
     story.append(Spacer(1, 6 * mm))
-
     # ── 파일명 표시 ────────────────────────────────────────
     file_table = Table(
         [[
@@ -600,7 +610,7 @@ def generate_compare_pdf_report(params_a, params_b,
     )
     file_table.setStyle(TableStyle([
         ("BACKGROUND",    (0, 0), (0, 0), C_ACCENT),
-        ("BACKGROUND",    (1, 0), (1, 0), C_ORANGE),
+        ("BACKGROUND",    (1, 0), (1, 0), C_PRIMARY),
         ("TOPPADDING",    (0, 0), (-1, -1), 6),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ("LEFTPADDING",   (0, 0), (-1, -1), 10),
@@ -658,13 +668,16 @@ def generate_compare_pdf_report(params_a, params_b,
             cmp_data.append([
                 Paragraph(p_name,
                           ParagraphStyle(name="CP0" + str(i), fontName=fn,
-                                         fontSize=8, leading=12)),
+                                         fontSize=8, leading=12,
+                                         textColor=C_BLACK)),
                 Paragraph(val_a,
                           ParagraphStyle(name="CP1" + str(i), fontName=fn,
-                                         fontSize=8, leading=12)),
+                                         fontSize=8, leading=12,
+                                         textColor=C_BLACK)),
                 Paragraph(val_b,
                           ParagraphStyle(name="CP2" + str(i), fontName=fn,
-                                         fontSize=8, leading=12)),
+                                         fontSize=8, leading=12,
+                                         textColor=C_BLACK)),
                 Paragraph(
                     "<font color='" + diff_col.hexval() + "'><b>" + diff_txt + "</b></font>",
                     ParagraphStyle(name="CP3" + str(i), fontName=fn,
@@ -679,7 +692,7 @@ def generate_compare_pdf_report(params_a, params_b,
         )
         cmp_table.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, 0),  C_PRIMARY),
-            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [C_WHITE, C_BG]),
+            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [C_WHITE, C_PALE]),
             ("GRID",          (0, 0), (-1, -1), 0.3, C_BORDER),
             ("TOPPADDING",    (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
@@ -711,7 +724,7 @@ def generate_compare_pdf_report(params_a, params_b,
                 Paragraph(
                     "<b>" + img_b_label + "</b>",
                     ParagraphStyle(name="RB", fontName=fb, fontSize=9,
-                                   leading=14, textColor=C_ORANGE)
+                                   leading=14, textColor=C_PRIMARY)
                 ),
             ]],
             colWidths=[95 * mm, 95 * mm],
@@ -724,8 +737,12 @@ def generate_compare_pdf_report(params_a, params_b,
             colWidths=[95 * mm, 95 * mm],
         )
         radar_img_table.setStyle(TableStyle([
-            ("ALIGN",  (0, 0), (-1, -1), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN",        (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
+            ("BACKGROUND",   (0, 0), (-1, -1), C_PALE),
+            ("GRID",         (0, 0), (-1, -1), 0.3, C_BORDER),
+            ("TOPPADDING",   (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING",(0, 0), (-1, -1), 4),
         ]))
         story.append(radar_img_table)
 
@@ -747,3 +764,4 @@ def generate_compare_pdf_report(params_a, params_b,
     doc.build(story)
     buffer.seek(0)
     return buffer
+
