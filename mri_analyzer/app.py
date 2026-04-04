@@ -26,8 +26,6 @@ if "lang" not in st.session_state:
     st.session_state.lang = "ko"
 if "mode" not in st.session_state:
     st.session_state.mode = "single"
-if "is_admin" not in st.session_state:
-    st.session_state.is_admin = False
 
 
 def translate_label(label, lang):
@@ -67,55 +65,29 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ── API Key / 관리자 구분 ──────────────────────────────
+    # ── API Key 입력 ───────────────────────────────────────
     st.header("🔑 API Key")
-
-    admin_pw = st.text_input(
-        "관리자 비밀번호" if lang == "ko" else "Admin Password",
+    user_api_key = st.text_input(
+        "Groq API Key" if lang == "en" else "Groq API Key 입력",
         type="password",
-        placeholder="관리자만 입력 / Admin only",
-        key="admin_pw"
+        placeholder="gsk_...",
+        help="https://console.groq.com 에서 무료 발급" if lang == "ko"
+             else "Get your free key at https://console.groq.com",
+        key="user_api_key"
     )
-
-    # 관리자 비밀번호 확인
-    try:
-        correct_pw  = st.secrets["admin"]["password"]
-        admin_key   = st.secrets["admin"]["api_key"]
-    except Exception:
-        correct_pw  = ""
-        admin_key   = ""
-
-    if admin_pw and admin_pw == correct_pw:
-        st.session_state.is_admin = True
-    elif admin_pw and admin_pw != correct_pw:
-        st.session_state.is_admin = False
-
-    if st.session_state.is_admin:
-        st.success("✅ 관리자 모드" if lang == "ko" else "✅ Admin Mode")
-        api_key = admin_key
+    if lang == "ko":
+        st.caption("🔗 [무료 API Key 발급받기](https://console.groq.com)")
+        st.caption("⚠️ 키는 저장되지 않으며 세션 종료시 사라집니다.")
     else:
-        if admin_pw and not st.session_state.is_admin:
-            st.error("❌ 비밀번호가 틀렸습니다." if lang == "ko" else "❌ Wrong password.")
+        st.caption("🔗 [Get Free API Key](https://console.groq.com)")
+        st.caption("⚠️ Key is not stored and disappears when session ends.")
 
-        st.markdown("---")
-        if lang == "ko":
-            st.caption("🔽 개인 API Key로 사용하기")
-        else:
-            st.caption("🔽 Use with your own API Key")
-
-        user_api_key = st.text_input(
-            "Groq API Key 입력" if lang == "ko" else "Enter Groq API Key",
-            type="password",
-            placeholder="gsk_...",
-            key="user_api_key"
-        )
-        if lang == "ko":
-            st.caption("🔗 [무료 API Key 발급받기](https://console.groq.com)")
-            st.caption("⚠️ 키는 저장되지 않으며 세션 종료시 사라집니다.")
-        else:
-            st.caption("🔗 [Get Free API Key](https://console.groq.com)")
-            st.caption("⚠️ Key is not stored and disappears when session ends.")
-        api_key = user_api_key
+    # api_key 우선순위: 사용자 입력 > secrets
+    try:
+        secret_key = st.secrets["groq"]["api_key"]
+    except Exception:
+        secret_key = ""
+    api_key = user_api_key if user_api_key else secret_key
 
     st.markdown("---")
 
@@ -264,16 +236,17 @@ T = lambda key: get_text(lang, key)
 st.title(T("app_title"))
 st.warning(T("app_warning"))
 
-# ── API Key 상태 배너 ──────────────────────────────────────
-if st.session_state.is_admin:
-    st.success("👑 관리자 모드" if lang == "ko" else "👑 Admin Mode")
-elif api_key:
-    st.info("✅ 개인 API Key 사용 중" if lang == "ko" else "✅ Using personal API Key")
+# ── API Key 안내 배너 ──────────────────────────────────────
+if not api_key:
+    if lang == "ko":
+        st.error("⚠️ 좌측 사이드바에서 Groq API Key를 입력해주세요! [무료 발급](https://console.groq.com)")
+    else:
+        st.error("⚠️ Please enter your Groq API Key in the left sidebar! [Get Free Key](https://console.groq.com)")
 else:
     if lang == "ko":
-        st.error("⚠️ API Key가 없습니다. 사이드바에서 입력하거나 [무료 발급](https://console.groq.com) 받으세요.")
+        st.success("✅ API Key가 입력되었습니다. AI 분석을 사용할 수 있습니다.")
     else:
-        st.error("⚠️ No API Key. Enter in sidebar or [get free key](https://console.groq.com).")
+        st.success("✅ API Key entered. AI analysis is available.")
 
 with st.expander(T("reference_header")):
     st.markdown(T("reference_body"))
@@ -302,6 +275,10 @@ if mode == "single":
             st.dataframe(df, use_container_width=True, hide_index=True)
 
             st.header(T("radar_header"))
+            st.caption(
+                "파라미터 적합도 레이더 차트" if lang == "ko"
+                else "Parameter Fitness Radar Chart"
+            )
             radar = create_radar_chart(params, user_baseline, lang)
             if radar:
                 st.plotly_chart(radar, use_container_width=True, key="radar_single")
@@ -325,9 +302,9 @@ if mode == "single":
             st.header(T("ai_header"))
             if not api_key:
                 if lang == "ko":
-                    st.error("⚠️ 사이드바에서 API Key를 먼저 입력해주세요!")
+                    st.error("⚠️ 사이드바에서 Groq API Key를 먼저 입력해주세요!")
                 else:
-                    st.error("⚠️ Please enter your API Key in the sidebar first!")
+                    st.error("⚠️ Please enter your Groq API Key in the sidebar first!")
             else:
                 if st.button(T("ai_button"), type="primary"):
                     with st.spinner(T("ai_spinner")):
@@ -362,6 +339,8 @@ if mode == "single":
                             )
                         except Exception as e:
                             st.error(T("ai_error").format(e))
+
+
 # ════════════════════════════════════════════════════════════
 # ⚖️ 두 영상 비교 모드
 # ════════════════════════════════════════════════════════════
@@ -392,9 +371,11 @@ elif mode == "compare":
         ai_btn   = "🤖 Start AI Comparison"
 
     col_a, col_b = st.columns(2)
+
     with col_a:
         st.subheader(name_a)
         upload_a = st.file_uploader(label_a, type=None, key="compare_a")
+
     with col_b:
         st.subheader(name_b)
         upload_b = st.file_uploader(label_b, type=None, key="compare_b")
@@ -407,11 +388,13 @@ elif mode == "compare":
 
         if params_a and params_b:
 
+            # ── 제조사 정보 ──────────────────────────────────
             with col_a:
                 mfr_a = show_mfr_info(params_a)
             with col_b:
                 mfr_b = show_mfr_info(params_b)
 
+            # ── 파라미터 탭 ──────────────────────────────────
             st.markdown("---")
             if lang == "ko":
                 st.subheader("📋 파라미터 상세")
@@ -427,6 +410,7 @@ elif mode == "compare":
             with tab_b:
                 show_params_tabs(params_b, mfr_b, lang, prefix="cmp_b")
 
+            # ── 파라미터 비교표 ──────────────────────────────
             st.markdown("---")
             st.subheader(diff_hdr)
             st.caption(diff_cap)
@@ -461,8 +445,10 @@ elif mode == "compare":
                 ]
                 df_merge[name_a + " 상태"] = df_a[df_a.columns[-2]]
                 df_merge[name_b + " 상태"] = df_b[df_b.columns[-2]]
+
                 st.dataframe(df_merge, use_container_width=True, hide_index=True)
 
+            # ── 레이더 차트 비교 ─────────────────────────────
             st.markdown("---")
             st.subheader(radar_hdr)
 
@@ -473,16 +459,25 @@ elif mode == "compare":
             with rc1:
                 st.caption("🔵 " + name_a)
                 if radar_a:
-                    st.plotly_chart(radar_a, use_container_width=True, key="radar_compare_a")
+                    st.plotly_chart(
+                        radar_a,
+                        use_container_width=True,
+                        key="radar_compare_a"
+                    )
                 else:
                     st.info(T("radar_empty"))
             with rc2:
                 st.caption("🟠 " + name_b)
                 if radar_b:
-                    st.plotly_chart(radar_b, use_container_width=True, key="radar_compare_b")
+                    st.plotly_chart(
+                        radar_b,
+                        use_container_width=True,
+                        key="radar_compare_b"
+                    )
                 else:
                     st.info(T("radar_empty"))
 
+            # ── 게이지 차트 비교 ─────────────────────────────
             st.markdown("---")
             st.subheader(gauge_hdr)
 
@@ -512,21 +507,22 @@ elif mode == "compare":
                 else:
                     st.info("Cannot generate gauge charts.")
 
+            # ── AI 비교 분석 ─────────────────────────────────
             st.markdown("---")
             st.subheader(ai_hdr)
 
             if not api_key:
                 if lang == "ko":
-                    st.error("⚠️ 사이드바에서 API Key를 먼저 입력해주세요!")
+                    st.error("⚠️ 사이드바에서 Groq API Key를 먼저 입력해주세요!")
                 else:
-                    st.error("⚠️ Please enter your API Key in the sidebar first!")
+                    st.error("⚠️ Please enter your Groq API Key in the sidebar first!")
             else:
                 if st.button(ai_btn, type="primary"):
                     with st.spinner(T("ai_spinner")):
                         try:
                             if lang == "ko":
                                 compare_prompt = (
-                                    "다음은 두 MRI 영상의 파라미터입니다.\n\n"
+                                    "다음은 두 MRI 영상의 파라미터입니다. 두 영상을 비교 분석해주세요.\n\n"
                                     "[영상 A : " + filename_a + "]\n"
                                     "시퀀스: " + selected_seq + "\n"
                                     "파라미터: " + str(params_a.get("시퀀스 파라미터", {})) + "\n"
@@ -535,6 +531,7 @@ elif mode == "compare":
                                     "시퀀스: " + selected_seq + "\n"
                                     "파라미터: " + str(params_b.get("시퀀스 파라미터", {})) + "\n"
                                     "공간해상도: " + str(params_b.get("공간 해상도", {})) + "\n\n"
+                                    "다음 항목으로 비교 분석해주세요:\n"
                                     "## 1. 주요 파라미터 차이점\n"
                                     "## 2. 영상 품질 관점에서의 차이\n"
                                     "## 3. 어떤 영상이 더 적합한지 (이유 포함)\n"
@@ -542,7 +539,7 @@ elif mode == "compare":
                                 )
                             else:
                                 compare_prompt = (
-                                    "Compare the following two MRI images:\n\n"
+                                    "Compare the following two MRI image parameters:\n\n"
                                     "[Image A : " + filename_a + "]\n"
                                     "Sequence: " + selected_seq + "\n"
                                     "Parameters: " + str(params_a.get("시퀀스 파라미터", {})) + "\n"
@@ -551,6 +548,7 @@ elif mode == "compare":
                                     "Sequence: " + selected_seq + "\n"
                                     "Parameters: " + str(params_b.get("시퀀스 파라미터", {})) + "\n"
                                     "Spatial: " + str(params_b.get("공간 해상도", {})) + "\n\n"
+                                    "Please analyze:\n"
                                     "## 1. Key parameter differences\n"
                                     "## 2. Image quality differences\n"
                                     "## 3. Which image is more suitable (with reasons)\n"
@@ -600,3 +598,4 @@ elif mode == "compare":
 
                         except Exception as e:
                             st.error(T("ai_error").format(e))
+
