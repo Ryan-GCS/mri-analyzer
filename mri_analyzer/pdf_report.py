@@ -71,61 +71,48 @@ C_HEADER_LINE = colors.HexColor("#DDDDDD")
 
 # ── 스타일 ────────────────────────────────────────────────
 def get_styles(fn):
-    fb = "KoreanBold" if fn == "Korean" else fn + "-Bold"
-    s  = getSampleStyleSheet()
+    styles = getSampleStyleSheet()
 
-    s.add(ParagraphStyle(
-        name="PatientLabel",
-        fontName=fn, fontSize=7,
-        textColor=C_GRAY, leading=10,
+    # ── 기존 스타일 덮어쓰기 방지 ──────────────────────────
+    def add_style(style):
+        try:
+            styles.add(style)
+        except KeyError:
+            # 이미 있으면 덮어쓰기
+            styles[style.name] = style
+
+    add_style(ParagraphStyle(
+        name      = "BodyText",
+        fontName  = fn,
+        fontSize  = 9,
+        leading   = 14,
+        textColor = C_BLACK,
     ))
-    s.add(ParagraphStyle(
-        name="PatientValue",
-        fontName=fb, fontSize=8.5,
-        textColor=C_BLACK, leading=12,
+    add_style(ParagraphStyle(
+        name      = "SmallText",
+        fontName  = fn,
+        fontSize  = 8,
+        leading   = 12,
+        textColor = C_MID,
     ))
-    s.add(ParagraphStyle(
-        name="SectionTitle",
-        fontName=fb, fontSize=16,
-        textColor=C_BLACK, leading=22,
-        spaceBefore=8, spaceAfter=4,
+    add_style(ParagraphStyle(
+        name      = "SectionTitle",
+        fontName  = fn,
+        fontSize  = 11,
+        leading   = 16,
+        textColor = C_BLACK,
+        spaceAfter= 4,
     ))
-    s.add(ParagraphStyle(
-        name="SubTitle",
-        fontName=fb, fontSize=12,
-        textColor=C_BLACK, leading=16,
-        spaceBefore=6, spaceAfter=3,
+    add_style(ParagraphStyle(
+        name      = "Disclaimer",
+        fontName  = fn,
+        fontSize  = 7,
+        leading   = 11,
+        textColor = C_MID,
     ))
-    s.add(ParagraphStyle(
-        name="BodyText",
-        fontName=fn, fontSize=8.5,
-        textColor=C_MID, leading=14,
-        spaceAfter=3,
-    ))
-    s.add(ParagraphStyle(
-        name="SmallText",
-        fontName=fn, fontSize=7,
-        textColor=C_GRAY, leading=10,
-    ))
-    s.add(ParagraphStyle(
-        name="BulletText",
-        fontName=fn, fontSize=8.5,
-        textColor=C_MID, leading=14,
-        leftIndent=10, spaceAfter=2,
-    ))
-    s.add(ParagraphStyle(
-        name="AIHead",
-        fontName=fb, fontSize=10,
-        textColor=C_BLACK, leading=15,
-        spaceBefore=6, spaceAfter=3,
-    ))
-    s.add(ParagraphStyle(
-        name="AIBody",
-        fontName=fn, fontSize=8.5,
-        textColor=C_MID, leading=14,
-        spaceAfter=3,
-    ))
-    return s, fb
+
+    fb = fn + "-Bold" if fn != "Helvetica" else "Helvetica-Bold"
+    return styles, fb
 
 
 # ── 헬퍼 ─────────────────────────────────────────────────
