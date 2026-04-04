@@ -73,46 +73,46 @@ C_HEADER_LINE = colors.HexColor("#DDDDDD")
 def get_styles(fn):
     styles = getSampleStyleSheet()
 
-    # ── 기존 스타일 덮어쓰기 방지 ──────────────────────────
-    def add_style(style):
-        try:
-            styles.add(style)
-        except KeyError:
-            # 이미 있으면 덮어쓰기
-            styles[style.name] = style
+# ── 기존 스타일 덮어쓰기 방지 ──────────────────────────
+def add_style(style):
+    try:
+        styles.add(style)
+    except KeyError:
+        # 이미 있으면 덮어쓰기
+        styles[style.name] = style
 
-    add_style(ParagraphStyle(
-        name      = "BodyText",
-        fontName  = fn,
-        fontSize  = 9,
-        leading   = 14,
-        textColor = C_BLACK,
-    ))
-    add_style(ParagraphStyle(
-        name      = "SmallText",
-        fontName  = fn,
-        fontSize  = 8,
-        leading   = 12,
-        textColor = C_MID,
-    ))
-    add_style(ParagraphStyle(
-        name      = "SectionTitle",
-        fontName  = fn,
-        fontSize  = 11,
-        leading   = 16,
-        textColor = C_BLACK,
-        spaceAfter= 4,
-    ))
-    add_style(ParagraphStyle(
-        name      = "Disclaimer",
-        fontName  = fn,
-        fontSize  = 7,
-        leading   = 11,
-        textColor = C_MID,
-    ))
+add_style(ParagraphStyle(
+    name      = "BodyText",
+    fontName  = fn,
+    fontSize  = 9,
+    leading   = 14,
+    textColor = C_BLACK,
+))
+add_style(ParagraphStyle(
+    name      = "SmallText",
+    fontName  = fn,
+    fontSize  = 8,
+    leading   = 12,
+    textColor = C_MID,
+))
+add_style(ParagraphStyle(
+    name      = "SectionTitle",
+    fontName  = fn,
+    fontSize  = 11,
+    leading   = 16,
+    textColor = C_BLACK,
+    spaceAfter= 4,
+))
+add_style(ParagraphStyle(
+    name      = "Disclaimer",
+    fontName  = fn,
+    fontSize  = 7,
+    leading   = 11,
+    textColor = C_MID,
+))
 
-    fb = fn + "-Bold" if fn != "Helvetica" else "Helvetica-Bold"
-    return styles, fb
+fb = fn + "-Bold" if fn != "Helvetica" else "Helvetica-Bold"
+return styles, fb
 
 
 # ── 헬퍼 ─────────────────────────────────────────────────
