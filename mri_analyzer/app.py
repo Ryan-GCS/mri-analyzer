@@ -65,14 +65,48 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ── API Key 입력 ───────────────────────────────────────
-    st.header("🔑 API Key")
+# ── API Key / 관리자 구분 ──────────────────────────────
+st.header("🔑 API Key")
+
+# 관리자 비밀번호 입력
+admin_pw = st.text_input(
+    "🔐 관리자 비밀번호" if lang == "ko" else "🔐 Admin Password",
+    type="password",
+    placeholder="관리자만 입력하세요" if lang == "ko" else "Admin only",
+    key="admin_pw"
+)
+
+# 관리자 확인
+try:
+    correct_pw = st.secrets["admin"]["password"]
+    admin_key  = st.secrets["admin"]["api_key"]
+except Exception:
+    correct_pw = ""
+    admin_key  = ""
+
+if admin_pw and admin_pw == correct_pw:
+    st.session_state.is_admin = True
+    st.success("✅ 관리자 모드" if lang == "ko" else "✅ Admin Mode")
+    api_key = admin_key
+elif admin_pw and admin_pw != correct_pw:
+    st.session_state.is_admin = False
+    st.error("❌ 비밀번호가 틀렸습니다." if lang == "ko" else "❌ Wrong password.")
+    api_key = ""
+else:
+    st.session_state.is_admin = False
+
+# 관리자가 아닐 때만 개인 키 입력창 표시
+if not st.session_state.is_admin:
+    st.markdown("─────────────────")
+    if lang == "ko":
+        st.caption("🔽 또는 개인 API Key로 사용")
+    else:
+        st.caption("🔽 Or use your own API Key")
+
     user_api_key = st.text_input(
-        "Groq API Key" if lang == "en" else "Groq API Key 입력",
+        "Groq API Key 입력" if lang == "ko" else "Enter Groq API Key",
         type="password",
         placeholder="gsk_...",
-        help="https://console.groq.com 에서 무료 발급" if lang == "ko"
-             else "Get your free key at https://console.groq.com",
         key="user_api_key"
     )
     if lang == "ko":
@@ -81,13 +115,7 @@ with st.sidebar:
     else:
         st.caption("🔗 [Get Free API Key](https://console.groq.com)")
         st.caption("⚠️ Key is not stored and disappears when session ends.")
-
-    # api_key 우선순위: 사용자 입력 > secrets
-    try:
-        secret_key = st.secrets["groq"]["api_key"]
-    except Exception:
-        secret_key = ""
-    api_key = user_api_key if user_api_key else secret_key
+    api_key = user_api_key if user_api_key else ""
 
     st.markdown("---")
 
