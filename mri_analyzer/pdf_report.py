@@ -320,10 +320,14 @@ def build_ai_section(ai_result, fn, fb):
         i += 1
 
     return items
-# ── 단일 영상 PDF ───────────────────────────────────────────
-def generate_pdf_report(params, user_baseline, df,
-                        radar_fig, gauge_figs,
-                        ai_result, selected_seq, lang="ko"):
+# ── 비교 영상 PDF ───────────────────────────────────────────
+def generate_compare_pdf_report(params_a, params_b,
+                                filename_a, filename_b,
+                                user_baseline,
+                                df_a, df_b,
+                                radar_fig_a, radar_fig_b,
+                                ai_result,
+                                selected_seq, lang="ko"):
 
     buffer = io.BytesIO()
     fn     = register_fonts()
@@ -341,24 +345,28 @@ def generate_pdf_report(params, user_baseline, df,
 
     # ── 헤더 ──────────────────────────────────────────────
     if lang == "ko":
-        title_txt    = "MRI DICOM 파라미터 분석 보고서"
+        title_txt    = "MRI DICOM 비교 분석 보고서"
         subtitle_txt = "시퀀스 : " + selected_seq
         date_txt     = "생성일 : " + __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M")
+        img_a_label  = "영상 A"
+        img_b_label  = "영상 B"
     else:
-        title_txt    = "MRI DICOM Parameter Analysis Report"
+        title_txt    = "MRI DICOM Comparison Report"
         subtitle_txt = "Sequence : " + selected_seq
         date_txt     = "Generated : " + __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M")
+        img_a_label  = "Image A"
+        img_b_label  = "Image B"
 
     header_table = Table(
         [[
             Paragraph(
                 "<font color='white'><b>" + title_txt + "</b></font>",
-                ParagraphStyle(name="HT", fontName=fb, fontSize=16,
+                ParagraphStyle(name="CHT", fontName=fb, fontSize=16,
                                leading=22, textColor=C_WHITE)
             ),
             Paragraph(
                 "<font color='white'>" + subtitle_txt + "<br/>" + date_txt + "</font>",
-                ParagraphStyle(name="HS", fontName=fn, fontSize=9,
+                ParagraphStyle(name="CHS", fontName=fn, fontSize=9,
                                leading=14, textColor=C_WHITE, alignment=2)
             ),
         ]],
@@ -375,149 +383,51 @@ def generate_pdf_report(params, user_baseline, df,
     story.append(header_table)
     story.append(Spacer(1, 6 * mm))
 
-    # ── 기본 정보 ──────────────────────────────────────────
-    basic = params.get("기본 정보", {})
-    if lang == "ko":
-        info_title    = "기본 정보"
-        info_data_raw = {
-            "환자 ID":  basic.get("환자 ID", "-"),
-            "검사일":   basic.get("검사일", "-"),
-            "제조사":   basic.get("감지된 제조사", "-"),
-            "모델명":   basic.get("모델명", "-"),
-            "자장강도": basic.get("자장강도", "-"),
-        }
-    else:
-        info_title    = "Basic Information"
-        info_data_raw = {
-            "Patient ID":     basic.get("환자 ID", "-"),
-            "Study Date":     basic.get("검사일", "-"),
-            "Manufacturer":   basic.get("감지된 제조사", "-"),
-            "Model":          basic.get("모델명", "-"),
-            "Field Strength": basic.get("자장강도", "-"),
-        }
-
-    story.append(build_section_title(info_title, fn, fb))
-    story.append(Spacer(1, 2 * mm))
-
-    info_rows = []
-    for k, v in info_data_raw.items():
-        info_rows.append([
-            Paragraph("<b>" + k + "</b>",
-                      ParagraphStyle(name="IK" + k[:4], fontName=fb,
-                                     fontSize=8, leading=12)),
-            Paragraph(str(v),
-                      ParagraphStyle(name="IV" + k[:4], fontName=fn,
-                                     fontSize=8, leading=12)),
-        ])
-
-    info_table = Table(info_rows, colWidths=[50 * mm, 140 * mm])
-    info_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (0, -1), C_BG),
-        ("GRID",          (0, 0), (-1, -1), 0.3, C_BORDER),
-        ("TOPPADDING",    (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+    # ── 파일명 표시 ────────────────────────────────────────
+    file_table = Table(
+        [[
+            Paragraph(
+                "<b>" + img_a_label + "</b><br/>" + filename_a,
+                ParagraphStyle(name="FA", fontName=fn, fontSize=9,
+                               leading=14, textColor=C_WHITE)
+            ),
+            Paragraph(
+                "<b>" + img_b_label + "</b><br/>" + filename_b,
+                ParagraphStyle(name="FB", fontName=fn, fontSize=9,
+                               leading=14, textColor=C_WHITE)
+            ),
+        ]],
+        colWidths=[95 * mm, 95 * mm],
+    )
+    file_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (0, 0), C_ACCENT),
+        ("BACKGROUND",    (1, 0), (1, 0), C_ORANGE),
+        ("TOPPADDING",    (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
     ]))
-    story.append(info_table)
+    story.append(file_table)
     story.append(Spacer(1, 5 * mm))
 
     # ── 파라미터 비교표 ────────────────────────────────────
     if lang == "ko":
         table_title = "파라미터 비교표"
+        col_a_label = "영상 A 값"
+        col_b_label = "영상 B 값"
+        diff_label  = "차이"
+        param_label = "파라미터"
     else:
         table_title = "Parameter Comparison Table"
+        col_a_label = "Image A"
+        col_b_label = "Image B"
+        diff_label  = "Diff"
+        param_label = "Parameter"
 
     story.append(build_section_title(table_title, fn, fb))
     story.append(Spacer(1, 2 * mm))
 
-    if df is not None and len(df) > 0:
-        col_names  = list(df.columns)
-        header_row = [
-            Paragraph("<b>" + c + "</b>",
-                      ParagraphStyle(name="TH" + str(i), fontName=fb,
-                                     fontSize=8, leading=12, textColor=C_WHITE))
-            for i, c in enumerate(col_names)
-        ]
-        table_data = [header_row]
-
-        for _, row in df.iterrows():
-            row_data = []
-            for i, val in enumerate(row):
-                txt = str(val)
-                if i == len(col_names) - 2:
-                    col = status_color(txt)
-                    p = Paragraph(
-                        "<font color='" + col.hexval() + "'><b>" + txt + "</b></font>",
-                        ParagraphStyle(name="TDS" + str(i), fontName=fn,
-                                       fontSize=8, leading=12)
-                    )
-                else:
-                    p = Paragraph(
-                        txt,
-                        ParagraphStyle(name="TDN" + str(i), fontName=fn,
-                                       fontSize=8, leading=12)
-                    )
-                row_data.append(p)
-            table_data.append(row_data)
-
-        n_cols     = len(col_names)
-        col_w      = 190 * mm / n_cols
-        col_widths = [col_w] * n_cols
-
-        param_table = Table(table_data, colWidths=col_widths, repeatRows=1)
-        param_table.setStyle(TableStyle([
-            ("BACKGROUND",    (0, 0), (-1, 0),  C_PRIMARY),
-            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [C_WHITE, C_BG]),
-            ("GRID",          (0, 0), (-1, -1), 0.3, C_BORDER),
-            ("TOPPADDING",    (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
-            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ]))
-        story.append(param_table)
-
-    story.append(Spacer(1, 5 * mm))
-
-    # ── 레이더 차트 ────────────────────────────────────────
-    if lang == "ko":
-        radar_title = "파라미터 적합도 레이더 차트"
-    else:
-        radar_title = "Parameter Fitness Radar Chart"
-
-    story.append(build_section_title(radar_title, fn, fb))
-    story.append(Spacer(1, 2 * mm))
-
-    radar_img = mpl_radar_to_image(params, user_baseline)
-    if radar_img:
-        story.append(radar_img)
-
-    story.append(Spacer(1, 5 * mm))
-
-    # ── AI 분석 결과 ───────────────────────────────────────
-    if lang == "ko":
-        ai_title = "AI 분석 결과"
-    else:
-        ai_title = "AI Analysis Result"
-
-    story.append(build_section_title(ai_title, fn, fb))
-    story.append(Spacer(1, 2 * mm))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=C_BORDER))
-    story.append(Spacer(1, 2 * mm))
-
-    for item in build_ai_section(ai_result, fn, fb):
-        story.append(item)
-
-    story.append(Spacer(1, 5 * mm))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=C_BORDER))
-    story.append(Spacer(1, 2 * mm))
-    story.append(build_disclaimer(fn, lang))
-
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
     if df_a is not None and df_b is not None and len(df_a) > 0:
 
         header_row = [
@@ -661,3 +571,4 @@ def generate_pdf_report(params, user_baseline, df,
     doc.build(story)
     buffer.seek(0)
     return buffer
+
